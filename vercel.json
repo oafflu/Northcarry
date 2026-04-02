@@ -1,0 +1,29 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/subscription-orders",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/abandoned-carts",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/win-back",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/birthday",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/review-requests",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/email-campaigns-resume",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
+

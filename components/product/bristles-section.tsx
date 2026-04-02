@@ -1,0 +1,63 @@
+import Image from "next/image"
+
+interface BristlesSectionProps {
+  cmsContent?: {
+    title?: string
+    image?: string
+    content?: string[]
+    backgroundColor?: string
+  }
+  cmsConfig?: {
+    imageHeight?: number
+  }
+}
+
+export function BristlesSection({ cmsContent, cmsConfig }: BristlesSectionProps = {}) {
+  const title = cmsContent?.title || ""
+  const image = cmsContent?.image || ""
+  const content = cmsContent?.content || []
+  const backgroundColor = cmsContent?.backgroundColor || "#e5e7eb" // Default to gray-200
+  const imageHeight = cmsConfig?.imageHeight
+
+  // If no content, don't render
+  if (!title && content.length === 0 && !image) {
+    return null
+  }
+
+  return (
+    <section className="py-8">
+      <div className="container mx-auto px-4 md:px-6 lg:px-8">
+        <div className="rounded-lg overflow-hidden" style={{ backgroundColor }}>
+          <div className="grid md:grid-cols-2 gap-0">
+            {/* Image */}
+            {image && (
+              <div 
+                className="relative w-full self-stretch"
+                style={imageHeight ? { height: `${imageHeight}px`, minHeight: `${imageHeight}px`, maxHeight: `${imageHeight}px` } : { height: '100%', minHeight: '256px' }}
+              >
+                <Image
+                  src={image}
+                  alt={title || "Bristles"}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            )}
+
+            {/* Content */}
+            <div className="p-8 md:p-12 flex flex-col justify-center">
+              {title && (
+                <h2 className="text-3xl md:text-4xl font-bold mb-6">{title}</h2>
+              )}
+              {content.map((paragraph, index) => (
+                <p key={index} className="text-gray-700 leading-relaxed mb-4">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}

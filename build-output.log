@@ -1,0 +1,125 @@
+
+> my-v0-project@0.1.0 build
+> next build
+
+   ▲ Next.js 16.0.0 (Turbopack)
+   - Environments: .env.local
+
+ ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 13.1s
+   Skipping validation of types
+   Collecting page data ...
+   Generating static pages (0/88) ...
+   Generating static pages (22/88) 
+   Generating static pages (44/88) 
+   Generating static pages (66/88) 
+ ✓ Generating static pages (88/88) in 1643.4ms
+   Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /account
+├ ƒ /account/addresses
+├ ƒ /account/loyalty
+├ ƒ /account/orders
+├ ƒ /account/orders/[id]
+├ ƒ /account/payment-methods
+├ ƒ /account/profile
+├ ƒ /account/returns
+├ ƒ /account/subscriptions
+├ ƒ /admin
+├ ƒ /admin/analytics
+├ ƒ /admin/cms
+├ ƒ /admin/cms/about
+├ ƒ /admin/cms/branding
+├ ƒ /admin/cms/checkout
+├ ƒ /admin/cms/contact
+├ ƒ /admin/cms/faq
+├ ƒ /admin/cms/footer
+├ ƒ /admin/cms/hero
+├ ƒ /admin/cms/home-template
+├ ƒ /admin/cms/menu
+├ ƒ /admin/cms/privacy
+├ ƒ /admin/cms/product-page
+├ ƒ /admin/cms/product-template
+├ ƒ /admin/cms/refund
+├ ƒ /admin/cms/terms
+├ ƒ /admin/cms/topbar
+├ ƒ /admin/contact
+├ ƒ /admin/customers
+├ ƒ /admin/customers/[id]
+├ ƒ /admin/email-marketing
+├ ƒ /admin/email-marketing/automations
+├ ƒ /admin/email-marketing/new
+├ ƒ /admin/inventory
+├ ƒ /admin/loyalty
+├ ƒ /admin/media
+├ ƒ /admin/newsletter
+├ ƒ /admin/orders
+├ ƒ /admin/orders/[id]
+├ ƒ /admin/products
+├ ƒ /admin/products/[id]
+├ ƒ /admin/products/new
+├ ƒ /admin/profile
+├ ƒ /admin/promotions
+├ ƒ /admin/promotions/new
+├ ƒ /admin/settings
+├ ƒ /admin/settings/countries
+├ ƒ /admin/settings/currencies
+├ ƒ /admin/settings/email
+├ ƒ /admin/settings/general
+├ ƒ /admin/settings/languages
+├ ƒ /admin/settings/payment
+├ ƒ /admin/settings/push
+├ ƒ /admin/settings/shipping
+├ ƒ /admin/subscriptions
+├ ƒ /admin/subscriptions/analytics
+├ ƒ /admin/subscriptions/create
+├ ƒ /admin/subscriptions/products
+├ ƒ /admin/subscriptions/products/[id]/edit
+├ ƒ /admin/subscriptions/settings
+├ ƒ /admin/suppliers
+├ ƒ /admin/suppliers/chat/[supplierId]
+├ ƒ /admin/support
+├ ƒ /admin/support/[id]
+├ ƒ /admin/users
+├ ƒ /api/admin/customers/[id]
+├ ƒ /api/create-payment-intent
+├ ƒ /api/payment-methods
+├ ƒ /api/pusher/auth
+├ ƒ /api/pusher/config
+├ ƒ /api/shipping-methods
+├ ƒ /api/stripe-config
+├ ƒ /api/webhooks/stripe
+├ ƒ /cart
+├ ƒ /checkout
+├ ƒ /contact
+├ ƒ /faq
+├ ƒ /forgot-password
+├ ƒ /login
+├ ƒ /privacy
+├ ƒ /product
+├ ƒ /product/[slug]
+├ ƒ /refund
+├ ƒ /register
+├ ƒ /supplier
+├ ƒ /supplier/chat
+├ ƒ /supplier/inventory
+├ ƒ /supplier/orders
+├ ƒ /supplier/orders/[id]
+├ ƒ /supplier/payment
+├ ƒ /supplier/payment/invoice
+├ ƒ /supplier/payment/methods
+├ ƒ /supplier/performance
+├ ƒ /supplier/returns
+├ ƒ /supplier/returns/[id]
+├ ƒ /terms
+└ ƒ /thank-you
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+
