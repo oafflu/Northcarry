@@ -1,4 +1,4 @@
-# BREVI - E-Commerce Platform
+# Northcarry - E-Commerce Platform
 
 A comprehensive e-commerce platform for BREVI, a sustainable premium toothbrush brand. Built with Next.js 16, React 19, TypeScript, and Tailwind CSS v4.
 
