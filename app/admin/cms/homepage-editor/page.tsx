@@ -1099,6 +1099,58 @@ function FeaturesSectionEditor({ section, onSave, onCancel }: { section: Section
   )
 }
 
+function ShowcaseSectionBackgroundFields({
+  backgroundColor,
+  textColor,
+  onBackgroundColorChange,
+  onTextColorChange,
+  bgHint,
+}: {
+  backgroundColor?: string
+  textColor?: string
+  onBackgroundColorChange: (value: string) => void
+  onTextColorChange: (value: string) => void
+  bgHint: string
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-gray-100">
+      <div>
+        <Label>Background color</Label>
+        <div className="flex gap-2 mt-1">
+          <Input
+            type="color"
+            value={backgroundColor || "#ffffff"}
+            onChange={(e) => onBackgroundColorChange(e.target.value)}
+            className="w-14 h-10 p-1"
+          />
+          <Input
+            value={backgroundColor || ""}
+            onChange={(e) => onBackgroundColorChange(e.target.value)}
+            placeholder="Leave empty for theme default"
+          />
+        </div>
+        <p className="text-xs text-gray-500 mt-1">{bgHint}</p>
+      </div>
+      <div>
+        <Label>Text color (optional)</Label>
+        <div className="flex gap-2 mt-1">
+          <Input
+            type="color"
+            value={textColor || "#000000"}
+            onChange={(e) => onTextColorChange(e.target.value)}
+            className="w-14 h-10 p-1"
+          />
+          <Input
+            value={textColor || ""}
+            onChange={(e) => onTextColorChange(e.target.value)}
+            placeholder="Leave empty for theme default"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ProductShowcaseEditor({ section, onSave, onCancel }: { section: Section; onSave: (updates: any) => void; onCancel: () => void }) {
   const [content, setContent] = useState(section.content || {
     productSection: {
@@ -1218,6 +1270,15 @@ function ProductShowcaseEditor({ section, onSave, onCancel }: { section: Section
               placeholder="Enter paragraphs separated by blank lines"
             />
           </div>
+          <ShowcaseSectionBackgroundFields
+            backgroundColor={content.productSection?.backgroundColor}
+            textColor={content.productSection?.textColor}
+            onBackgroundColorChange={(backgroundColor) =>
+              updateProductSection({ backgroundColor })
+            }
+            onTextColorChange={(textColor) => updateProductSection({ textColor })}
+            bgHint="Default: site background (white/light)"
+          />
         </div>
       )}
 
@@ -1255,6 +1316,15 @@ function ProductShowcaseEditor({ section, onSave, onCancel }: { section: Section
               placeholder="Enter paragraphs separated by blank lines"
             />
           </div>
+          <ShowcaseSectionBackgroundFields
+            backgroundColor={content.sensitiveSection?.backgroundColor}
+            textColor={content.sensitiveSection?.textColor}
+            onBackgroundColorChange={(backgroundColor) =>
+              updateSensitiveSection({ backgroundColor })
+            }
+            onTextColorChange={(textColor) => updateSensitiveSection({ textColor })}
+            bgHint="Default: accent color (teal)"
+          />
         </div>
       )}
 
@@ -1292,6 +1362,15 @@ function ProductShowcaseEditor({ section, onSave, onCancel }: { section: Section
               placeholder="Enter paragraphs separated by blank lines"
             />
           </div>
+          <ShowcaseSectionBackgroundFields
+            backgroundColor={content.bambooSection?.backgroundColor}
+            textColor={content.bambooSection?.textColor}
+            onBackgroundColorChange={(backgroundColor) =>
+              updateBambooSection({ backgroundColor })
+            }
+            onTextColorChange={(textColor) => updateBambooSection({ textColor })}
+            bgHint="Default: site background (white/light)"
+          />
         </div>
       )}
 

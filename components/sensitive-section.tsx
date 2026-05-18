@@ -1,4 +1,5 @@
 import { getPageTemplate } from "@/app/actions/cms"
+import { showcaseSectionStyle } from "@/lib/showcase-section-styles"
 
 export async function SensitiveSection() {
   // Try to load CMS content, fallback to default if not available
@@ -27,14 +28,27 @@ export async function SensitiveSection() {
   const badge = cmsContent?.badge || defaultBadge
   const title = cmsContent?.title || defaultTitle
   const paragraphs = cmsContent?.paragraphs || defaultParagraphs
+  const { className: sectionClass, style: sectionStyle } = showcaseSectionStyle(cmsContent)
+  const textColor = cmsContent?.textColor?.trim()
+  const badgeBorderColor = textColor || undefined
 
   return (
-    <section className="py-20 px-4 md:px-6 lg:px-8 bg-accent text-accent-foreground">
+    <section
+      className={`${sectionClass} ${
+        !cmsContent?.backgroundColor?.trim() ? "bg-accent text-accent-foreground" : ""
+      }`}
+      style={sectionStyle}
+    >
       <div className="container">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div className="space-y-6 order-2 md:order-1">
             <div className="inline-block">
-              <span className="text-sm font-bold tracking-[0.3em] px-4 py-2 border-2 border-accent-foreground">
+              <span
+                className={`text-sm font-bold tracking-[0.3em] px-4 py-2 border-2 ${
+                  badgeBorderColor ? "" : "border-accent-foreground"
+                }`}
+                style={badgeBorderColor ? { borderColor: badgeBorderColor } : undefined}
+              >
                 {badge}
               </span>
             </div>

@@ -1,4 +1,5 @@
 import { getPageTemplate } from "@/app/actions/cms"
+import { showcaseSectionStyle } from "@/lib/showcase-section-styles"
 
 export async function ProductSection() {
   // Try to load CMS content, fallback to default if not available
@@ -26,9 +27,14 @@ export async function ProductSection() {
   const image = cmsContent?.image || defaultImage
   const title = cmsContent?.title || defaultTitle
   const paragraphs = cmsContent?.paragraphs || defaultParagraphs
+  const { className: sectionClass, style: sectionStyle } = showcaseSectionStyle(cmsContent)
+  const hasCustomTextColor = Boolean(cmsContent?.textColor?.trim())
 
   return (
-    <section className="py-20 px-4 md:px-6 lg:px-8 bg-background">
+    <section
+      className={`${sectionClass} ${!cmsContent?.backgroundColor?.trim() ? "bg-background" : ""}`}
+      style={sectionStyle}
+    >
       <div className="container">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div className="relative aspect-square">
@@ -42,7 +48,11 @@ export async function ProductSection() {
           <div className="space-y-6">
             <h2 className="text-4xl md:text-5xl font-bold text-balance">{title}</h2>
 
-            <div className="space-y-4 text-muted-foreground leading-relaxed">
+            <div
+              className={`space-y-4 leading-relaxed ${
+                hasCustomTextColor ? "" : "text-muted-foreground"
+              }`}
+            >
               {paragraphs.map((paragraph: string, index: number) => (
                 <p key={index}>{paragraph}</p>
               ))}

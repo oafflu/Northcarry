@@ -135,26 +135,19 @@ export function Footer() {
 
           {/* Customer Service */}
           <div>
-            <h3 className="text-xl font-semibold mb-6">Customer Service</h3>
+            <h3 className="text-xl font-semibold mb-6">{footerCms.customerServiceHeading}</h3>
             <nav className="space-y-3 text-sm">
-              <Link href="/faq" className="block hover:text-gray-300 transition-colors">
-                FAQ
-              </Link>
-              <Link href="/contact" className="block hover:text-gray-300 transition-colors">
-                Contact Us
-              </Link>
-              <Link href="/affiliate" className="block hover:text-gray-300 transition-colors">
-                Affiliate
-              </Link>
-              <Link href="/privacy" className="block hover:text-gray-300 transition-colors">
-                Privacy Policy
-              </Link>
-              <Link href="/refund" className="block hover:text-gray-300 transition-colors">
-                Refund Policy
-              </Link>
-              <Link href="/terms" className="block hover:text-gray-300 transition-colors">
-                Terms of Service
-              </Link>
+              {footerCms.links.map((link, index) =>
+                link.label.trim() ? (
+                  <Link
+                    key={`${link.url}-${index}`}
+                    href={link.url || "#"}
+                    className="block hover:text-gray-300 transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                ) : null
+              )}
             </nav>
           </div>
 

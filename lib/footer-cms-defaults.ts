@@ -10,9 +10,19 @@ export type FooterGetInTouch = {
 
 export type FooterLink = { label: string; url: string }
 
+export const DEFAULT_FOOTER_CUSTOMER_SERVICE_LINKS: FooterLink[] = [
+  { label: 'FAQ', url: '/faq' },
+  { label: 'Contact Us', url: '/contact' },
+  { label: 'Affiliate', url: '/affiliate' },
+  { label: 'Privacy Policy', url: '/privacy' },
+  { label: 'Refund Policy', url: '/refund' },
+  { label: 'Terms of Service', url: '/terms' },
+]
+
 export type FooterCMSContent = {
   logo: string
   copyright: string
+  customerServiceHeading: string
   links: FooterLink[]
   newsletter: {
     enabled: boolean
@@ -51,18 +61,17 @@ export function mergeFooterCMSContent(raw: unknown): FooterCMSContent {
 
   return {
     logo: typeof saved.logo === "string" ? saved.logo : "",
+    customerServiceHeading:
+      typeof saved.customerServiceHeading === "string" &&
+      saved.customerServiceHeading.trim()
+        ? saved.customerServiceHeading
+        : "Customer Service",
     copyright:
       typeof saved.copyright === 'string' && saved.copyright.trim()
         ? saved.copyright
         : defaultFooterCopyright(),
     links:
-      links && links.length > 0
-        ? links
-        : [
-            { label: 'Privacy Policy', url: '/privacy' },
-            { label: 'Terms of Service', url: '/terms' },
-            { label: 'Refund Policy', url: '/refund' },
-          ],
+      links && links.length > 0 ? links : DEFAULT_FOOTER_CUSTOMER_SERVICE_LINKS,
     newsletter: {
       enabled: newsletter?.enabled !== false,
       title:

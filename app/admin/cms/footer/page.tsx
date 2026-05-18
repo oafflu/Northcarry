@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Save } from "lucide-react"
+import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react"
 import { getCMSContent, saveCMSContent } from "@/app/actions/cms"
 import { toast } from "sonner"
 import { MenuLinkAutocomplete } from "@/components/admin/menu-link-autocomplete"
@@ -193,16 +193,46 @@ export default function FooterManagementPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Footer Links</label>
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Customer Service links</h2>
+              <p className="text-sm text-gray-500">
+                Middle column on the storefront footer. Header navigation is managed under Navigation
+                Menu.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setContent({
+                  ...content,
+                  links: [...content.links, { label: "New link", url: "/" }],
+                })
+              }
+              className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              Add link
+            </button>
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Column heading</label>
+            <input
+              type="text"
+              value={content.customerServiceHeading}
+              onChange={(e) => setContent({ ...content, customerServiceHeading: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
           <div className="space-y-2">
             {content.links.map((link, index) => (
-              <div key={index} className="flex gap-2">
+              <div key={index} className="flex gap-2 items-start">
                 <input
                   type="text"
                   value={link.label}
                   onChange={(e) => {
                     const newLinks = [...content.links]
-                    newLinks[index].label = e.target.value
+                    newLinks[index] = { ...newLinks[index], label: e.target.value }
                     setContent({ ...content, links: newLinks })
                   }}
                   placeholder="Label"
@@ -213,11 +243,24 @@ export default function FooterManagementPage() {
                     value={link.url}
                     onChange={(url) => {
                       const newLinks = [...content.links]
-                      newLinks[index].url = url
+                      newLinks[index] = { ...newLinks[index], url }
                       setContent({ ...content, links: newLinks })
                     }}
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setContent({
+                      ...content,
+                      links: content.links.filter((_, i) => i !== index),
+                    })
+                  }
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                  aria-label="Remove link"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>
