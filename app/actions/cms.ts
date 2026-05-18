@@ -463,6 +463,7 @@ export async function saveTopBar(content: { message: string; enabled: boolean; b
   }
 
   revalidatePath('/')
+  revalidatePath('/', 'layout')
   return { success: true }
 }
 
@@ -626,6 +627,10 @@ export async function saveCMSContent(section: string, content: any) {
   if (section === 'faq') revalidatePath('/faq')
   if (section === 'footer') {
     revalidatePath('/', 'layout')
+  }
+  if (section === 'headers') {
+    revalidatePath('/', 'layout')
+    revalidatePath('/admin', 'layout')
   }
 
   return { success: true }

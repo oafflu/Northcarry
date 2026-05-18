@@ -10,6 +10,10 @@ import {
   mergeBrandingCMSContent,
   type BrandingCMSContent,
 } from "@/lib/branding-cms-defaults"
+import {
+  mergeHeadersCMSContent,
+  type StorefrontHeaderCMS,
+} from "@/lib/header-cms-defaults"
 
 interface MenuItem {
   id: number
@@ -35,12 +39,14 @@ interface HeaderProps {
   initialMenuItems?: MenuItem[]
   initialTopBar?: TopBarData
   initialBranding?: BrandingCMSContent
+  initialStorefrontHeader?: StorefrontHeaderCMS
 }
 
 export function Header({
   initialMenuItems,
   initialTopBar,
   initialBranding,
+  initialStorefrontHeader,
 }: HeaderProps = {}) {
   const { totalItems, setIsDrawerOpen } = useCart()
   const { user, logout, loading: authLoading } = useAuth()
@@ -56,6 +62,9 @@ export function Header({
   )
   const [branding, setBranding] = useState<BrandingCMSContent | null>(
     initialBranding || null
+  )
+  const [storefrontHeader, setStorefrontHeader] = useState<StorefrontHeaderCMS | null>(
+    initialStorefrontHeader || null
   )
 
   // Prevent hydration mismatch
@@ -84,6 +93,12 @@ export function Header({
       loadBranding()
     } else {
       setBranding(initialBranding)
+    }
+
+    if (!initialStorefrontHeader) {
+      loadStorefrontHeader()
+    } else {
+      setStorefrontHeader(initialStorefrontHeader)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted])
@@ -123,6 +138,16 @@ export function Header({
     }
   }
 
+  const loadStorefrontHeader = async () => {
+    try {
+      const result = await getCMSContent("headers")
+      setStorefrontHeader(mergeHeadersCMSContent(result.data).storefront)
+    } catch (error) {
+      console.error("Error loading header styles:", error)
+      setStorefrontHeader(mergeHeadersCMSContent(null).storefront)
+    }
+  }
+
   const loadTopBar = async () => {
     try {
       const result = await getTopBar()
@@ -155,12 +180,18 @@ export function Header({
   }
 
   // Don't render until we have data (prevents flash of hardcoded content)
-  if (!menuItems || !topBar || !branding) {
+  if (!menuItems || !topBar || !branding || !storefrontHeader) {
     return null
   }
 
+  const headerFg = storefrontHeader.textColor
+  const navInteractiveClass = "transition-opacity hover:opacity-70"
+
   return (
-    <header className="sticky top-0 z-50 w-full bg-white">
+    <header
+      className="sticky top-0 z-50 w-full"
+      style={{ backgroundColor: storefrontHeader.backgroundColor }}
+    >
       {topBar.enabled && (
         <div 
           className="py-2"
@@ -172,13 +203,14 @@ export function Header({
         </div>
       )}
 
-      <div className="border-b">
+      <div className="border-b" style={{ borderColor: storefrontHeader.borderColor }}>
         <div className="container mx-auto px-4 md:px-6 lg:px-8">
           <div className="flex h-16 sm:h-20 items-center justify-between">
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden text-gray-900 hover:text-gray-600 transition-colors"
+              className={`md:hidden ${navInteractiveClass}`}
+              style={{ color: headerFg }}
               aria-label="Open menu"
             >
               <Menu className="h-6 w-6" />
@@ -202,7 +234,8 @@ export function Header({
                 <Link 
                   key={item.id} 
                   href={item.url} 
-                  className="flex items-center gap-2 text-gray-900 hover:text-gray-600 transition-colors"
+                  className={`flex items-center gap-2 ${navInteractiveClass}`}
+                  style={{ color: headerFg }}
                 >
                   <span>{item.label}</span>
                   {item.badge && item.badge.text && (
@@ -231,7 +264,8 @@ export function Header({
                   {user ? (
                     <button
                       onClick={logout}
-                      className="p-2 -mr-2 sm:p-0 sm:mr-0 text-gray-900 hover:text-gray-600 transition-colors"
+                      className={`p-2 -mr-2 sm:p-0 sm:mr-0 ${navInteractiveClass}`}
+                      style={{ color: headerFg }}
                       aria-label="Logout"
                       title="Logout"
                     >
@@ -240,7 +274,8 @@ export function Header({
                   ) : (
                     <Link
                       href="/login"
-                      className="p-2 -mr-2 sm:p-0 sm:mr-0 text-gray-900 hover:text-gray-600 transition-colors"
+                      className={`p-2 -mr-2 sm:p-0 sm:mr-0 ${navInteractiveClass}`}
+                      style={{ color: headerFg }}
                       aria-label="Login"
                       title="Login"
                     >
@@ -251,7 +286,7 @@ export function Header({
               )}
               {/* Cart Button */}
               <button onClick={() => setIsDrawerOpen(true)} className="relative p-2 -mr-2 sm:p-0 sm:mr-0">
-                <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6 text-gray-900" />
+                <ShoppingCart className="h-5 w-5 sm:h-6 sm:w-6" style={{ color: headerFg }} />
                 {mounted && totalItems > 0 && (
                   <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-black text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center font-medium">
                     {totalItems}

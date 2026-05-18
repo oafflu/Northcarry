@@ -7,6 +7,8 @@ import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { getCMSContent } from "@/app/actions/cms"
+import { mergeHeadersCMSContent, type HeadersCMSContent } from "@/lib/header-cms-defaults"
 import {
   LayoutDashboard,
   Package,
@@ -256,6 +258,9 @@ export default function AdminLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [hideIcons, setHideIcons] = useState(false)
+  const [headerSettings, setHeaderSettings] = useState<HeadersCMSContent>(() =>
+    mergeHeadersCMSContent(null)
+  )
   const pathname = usePathname()
   const router = useRouter()
   const { user, loading, logout } = useAuth()
@@ -266,6 +271,23 @@ export default function AdminLayout({
     const savedPreference = localStorage.getItem('admin-sidebar-hide-icons')
     if (savedPreference === 'true') {
       setHideIcons(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const result = await getCMSContent("headers")
+        if (!cancelled) {
+          setHeaderSettings(mergeHeadersCMSContent(result.data))
+        }
+      } catch {
+        if (!cancelled) setHeaderSettings(mergeHeadersCMSContent(null))
+      }
+    })()
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -357,17 +379,30 @@ export default function AdminLayout({
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full bg-[#1a1a1a] transform transition-all duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-50 h-full transform transition-all duration-300 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } ${hideIcons ? "w-16" : "w-64"}`}
+        style={{ backgroundColor: headerSettings.admin.sidebarBackgroundColor }}
       >
         <div className="flex flex-col h-full">
           {/* Logo and Toggle */}
           <div className="flex items-center justify-between h-16 border-b border-gray-700">
             {!hideIcons ? (
               <>
-                <Link href="/admin" className="flex-1 px-6 text-white font-bold text-xl">
-                  BREVI Admin
+                <Link href="/admin" className="flex-1 px-6 flex items-center min-h-[40px]">
+                  {headerSettings.admin.logo ? (
+                    <Image
+                      src={headerSettings.admin.logo}
+                      alt={headerSettings.admin.sidebarTitle}
+                      width={140}
+                      height={40}
+                      className="h-8 w-auto max-w-[180px] object-contain"
+                    />
+                  ) : (
+                    <span className="text-white font-bold text-xl">
+                      {headerSettings.admin.sidebarTitle}
+                    </span>
+                  )}
                 </Link>
                 <button 
                   onClick={toggleIcons}
@@ -622,7 +657,10 @@ export default function AdminLayout({
       {/* Main content */}
       <div className={`transition-all duration-300 ${hideIcons ? "lg:pl-16" : "lg:pl-64"}`}>
         {/* Top bar */}
-        <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
+        <header
+          className="sticky top-0 z-30 border-b border-gray-200"
+          style={{ backgroundColor: headerSettings.admin.headerBackgroundColor }}
+        >
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-gray-600 hover:text-gray-900">
               <Menu className="w-6 h-6" />

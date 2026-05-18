@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { ImageIcon, MenuIcon, Type, Layout, FileText, CreditCard, Scale, HelpCircle, Mail } from "lucide-react"
+import { ImageIcon, MenuIcon, Type, Layout, FileText, CreditCard, Scale, HelpCircle, Mail, PanelTop } from "lucide-react"
 
 export default function CMSPage() {
   const sections = [
@@ -19,8 +19,15 @@ export default function CMSPage() {
       count: 3,
     },
     {
+      title: "Headers",
+      description: "Storefront header colors and admin dashboard logo",
+      icon: PanelTop,
+      href: "/admin/cms/headers",
+      count: 1,
+    },
+    {
       title: "Top Bar",
-      description: "Update announcement bar and promotional messages",
+      description: "Announcement bar message and colors",
       icon: Type,
       href: "/admin/cms/topbar",
       count: 1,

@@ -124,9 +124,19 @@ export default function TopBarManagementPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="pt-2 border-t border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Announcement bar colors</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              These colors apply to the strip above the main storefront header. Navigation header
+              colors are managed under{" "}
+              <Link href="/admin/cms/headers" className="text-teal-600 hover:underline">
+                Headers
+              </Link>
+              .
+            </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Background Color</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Background color</label>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
@@ -143,7 +153,7 @@ export default function TopBarManagementPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Text Color</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Text color</label>
               <div className="flex items-center gap-2">
                 <input
                   type="color"
