@@ -1,12 +1,13 @@
 import { Header } from "./header"
-import { getMenuItems, getTopBar } from "@/app/actions/cms"
+import { getMenuItems, getTopBar, getCMSContent } from "@/app/actions/cms"
+import { mergeBrandingCMSContent } from "@/lib/branding-cms-defaults"
 
 // Server component wrapper to fetch CMS data server-side
 export async function HeaderWrapper() {
-  // Fetch menu items and top bar server-side
-  const [menuResult, topBarResult] = await Promise.all([
+  const [menuResult, topBarResult, brandingResult] = await Promise.all([
     getMenuItems(),
     getTopBar(),
+    getCMSContent("branding"),
   ])
 
   // Extract and sort menu items
@@ -26,6 +27,14 @@ export async function HeaderWrapper() {
     textColor: "#ffffff",
   }
 
-  return <Header initialMenuItems={menuItems} initialTopBar={topBar} />
+  const branding = mergeBrandingCMSContent(brandingResult.data)
+
+  return (
+    <Header
+      initialMenuItems={menuItems}
+      initialTopBar={topBar}
+      initialBranding={branding}
+    />
+  )
 }
 

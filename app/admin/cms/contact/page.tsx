@@ -5,15 +5,15 @@ import Link from "next/link"
 import { ArrowLeft, Save } from "lucide-react"
 import { getCMSContent, saveCMSContent } from "@/app/actions/cms"
 import { toast } from "sonner"
+import {
+  mergeContactCMSContent,
+  type ContactCMSContent,
+} from "@/lib/contact-cms-defaults"
 
 export default function ContactManagementPage() {
-  const [content, setContent] = useState({
-    title: "Contact Us",
-    subtitle: "Get in touch with us",
-    email: "hello@brevibrushes.com",
-    address: "10685-B Hazelhurst Dr. #34479\nHouston, TX 77043, USA",
-    formEnabled: true,
-  })
+  const [content, setContent] = useState<ContactCMSContent>(() =>
+    mergeContactCMSContent(null)
+  )
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -24,13 +24,11 @@ export default function ContactManagementPage() {
   const loadContact = async () => {
     setLoading(true)
     try {
-      const result = await getCMSContent('contact')
-      if (result.data) {
-        setContent(result.data)
-      }
+      const result = await getCMSContent("contact")
+      setContent(mergeContactCMSContent(result.data))
     } catch (error) {
-      console.error('Error loading contact page:', error)
-      toast.error('Failed to load contact page')
+      console.error("Error loading contact page:", error)
+      toast.error("Failed to load contact page")
     } finally {
       setLoading(false)
     }
@@ -39,15 +37,15 @@ export default function ContactManagementPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const result = await saveCMSContent('contact', content)
+      const result = await saveCMSContent("contact", content)
       if (result.success) {
-        toast.success('Contact page saved successfully')
+        toast.success("Contact page saved successfully")
       } else {
-        toast.error(result.error || 'Failed to save contact page')
+        toast.error(result.error || "Failed to save contact page")
       }
     } catch (error) {
-      console.error('Error saving contact page:', error)
-      toast.error('Failed to save contact page')
+      console.error("Error saving contact page:", error)
+      toast.error("Failed to save contact page")
     } finally {
       setSaving(false)
     }
@@ -90,43 +88,117 @@ export default function ContactManagementPage() {
               type="text"
               value={content.subtitle}
               onChange={(e) => setContent({ ...content, subtitle: e.target.value })}
+              placeholder="Optional"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
             />
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-          <input
-            type="email"
-            value={content.email}
-            onChange={(e) => setContent({ ...content, email: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-          />
-          <p className="text-xs text-gray-500 mt-1">Customers can also use the live chat feature for instant support.</p>
+        <div className="pt-2 border-t border-gray-100 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">Get in touch section</h2>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Section heading</label>
+            <input
+              type="text"
+              value={content.getInTouchHeading}
+              onChange={(e) => setContent({ ...content, getInTouchHeading: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <input
+              type="email"
+              value={content.email}
+              onChange={(e) => setContent({ ...content, email: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email description</label>
+            <input
+              type="text"
+              value={content.emailDescription}
+              onChange={(e) => setContent({ ...content, emailDescription: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Live chat title</label>
+            <input
+              type="text"
+              value={content.liveChatTitle}
+              onChange={(e) => setContent({ ...content, liveChatTitle: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Live chat description</label>
+            <textarea
+              value={content.liveChatDescription}
+              onChange={(e) => setContent({ ...content, liveChatDescription: e.target.value })}
+              rows={2}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+            <textarea
+              value={content.address}
+              onChange={(e) => setContent({ ...content, address: e.target.value })}
+              rows={3}
+              placeholder="One line per row"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-          <textarea
-            value={content.address}
-            onChange={(e) => setContent({ ...content, address: e.target.value })}
-            rows={3}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-          />
+        <div className="pt-2 border-t border-gray-100 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">Contact form</h2>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Form heading</label>
+            <input
+              type="text"
+              value={content.formHeading}
+              onChange={(e) => setContent({ ...content, formHeading: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="formEnabled"
+              checked={content.formEnabled}
+              onChange={(e) => setContent({ ...content, formEnabled: e.target.checked })}
+              className="w-4 h-4 text-teal-600 rounded focus:ring-2 focus:ring-teal-500"
+            />
+            <label htmlFor="formEnabled" className="text-sm font-medium text-gray-700">
+              Enable contact form
+            </label>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="formEnabled"
-            checked={content.formEnabled}
-            onChange={(e) => setContent({ ...content, formEnabled: e.target.checked })}
-            className="w-4 h-4 text-teal-600 rounded focus:ring-2 focus:ring-teal-500"
-          />
-          <label htmlFor="formEnabled" className="text-sm font-medium text-gray-700">
-            Enable contact form
-          </label>
+        <div className="pt-2 border-t border-gray-100 space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">Business hours</h2>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Section title</label>
+            <input
+              type="text"
+              value={content.businessHoursTitle}
+              onChange={(e) => setContent({ ...content, businessHoursTitle: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Hours</label>
+            <textarea
+              value={content.businessHours}
+              onChange={(e) => setContent({ ...content, businessHours: e.target.value })}
+              rows={4}
+              placeholder="One line per row"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t">
@@ -136,17 +208,16 @@ export default function ContactManagementPage() {
           >
             Cancel
           </Link>
-          <button 
+          <button
             onClick={handleSave}
             disabled={saving}
             className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </div>
     </div>
   )
 }
-

@@ -10,6 +10,7 @@ import {
   mergeFooterCMSContent,
   type FooterCMSContent,
 } from "@/lib/footer-cms-defaults"
+import { ImagePicker } from "@/components/admin/image-picker"
 
 export default function FooterManagementPage() {
   const [content, setContent] = useState<FooterCMSContent>(() =>
@@ -73,6 +74,18 @@ export default function FooterManagementPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
+        <ImagePicker
+          value={content.logo}
+          onChange={(url) => setContent({ ...content, logo: url })}
+          label="Footer logo"
+          bucket="cms-media"
+          previewWidth={200}
+          previewHeight={60}
+        />
+        <p className="text-sm text-gray-500 -mt-4">
+          Optional. Leave empty to use the header logo from Logo &amp; Branding.
+        </p>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Copyright Text</label>
           <input

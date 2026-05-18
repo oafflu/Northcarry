@@ -5,7 +5,11 @@ import { ShoppingCart, Menu, X, LogIn, LogOut } from "lucide-react"
 import Image from "next/image"
 import { useCart } from "@/lib/cart-context"
 import { useAuth } from "@/lib/auth-context"
-import { getMenuItems, getTopBar } from "@/app/actions/cms"
+import { getMenuItems, getTopBar, getCMSContent } from "@/app/actions/cms"
+import {
+  mergeBrandingCMSContent,
+  type BrandingCMSContent,
+} from "@/lib/branding-cms-defaults"
 
 interface MenuItem {
   id: number
@@ -30,9 +34,14 @@ interface TopBarData {
 interface HeaderProps {
   initialMenuItems?: MenuItem[]
   initialTopBar?: TopBarData
+  initialBranding?: BrandingCMSContent
 }
 
-export function Header({ initialMenuItems, initialTopBar }: HeaderProps = {}) {
+export function Header({
+  initialMenuItems,
+  initialTopBar,
+  initialBranding,
+}: HeaderProps = {}) {
   const { totalItems, setIsDrawerOpen } = useCart()
   const { user, logout, loading: authLoading } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -44,6 +53,9 @@ export function Header({ initialMenuItems, initialTopBar }: HeaderProps = {}) {
   )
   const [topBar, setTopBar] = useState<TopBarData | null>(
     initialTopBar || null
+  )
+  const [branding, setBranding] = useState<BrandingCMSContent | null>(
+    initialBranding || null
   )
 
   // Prevent hydration mismatch
@@ -65,8 +77,13 @@ export function Header({ initialMenuItems, initialTopBar }: HeaderProps = {}) {
     if (!initialTopBar) {
       loadTopBar()
     } else {
-      // If we have initial data, set it immediately
       setTopBar(initialTopBar)
+    }
+
+    if (!initialBranding) {
+      loadBranding()
+    } else {
+      setBranding(initialBranding)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted])
@@ -93,6 +110,16 @@ export function Header({ initialMenuItems, initialTopBar }: HeaderProps = {}) {
         { id: 2, label: "Shop Now", url: "/product", order: 2 },
         { id: 3, label: "About Us", url: "#", order: 3 },
       ])
+    }
+  }
+
+  const loadBranding = async () => {
+    try {
+      const result = await getCMSContent("branding")
+      setBranding(mergeBrandingCMSContent(result.data))
+    } catch (error) {
+      console.error("Error loading branding:", error)
+      setBranding(mergeBrandingCMSContent(null))
     }
   }
 
@@ -128,7 +155,7 @@ export function Header({ initialMenuItems, initialTopBar }: HeaderProps = {}) {
   }
 
   // Don't render until we have data (prevents flash of hardcoded content)
-  if (!menuItems || !topBar) {
+  if (!menuItems || !topBar || !branding) {
     return null
   }
 
@@ -159,7 +186,14 @@ export function Header({ initialMenuItems, initialTopBar }: HeaderProps = {}) {
 
             {/* Logo */}
             <Link href="/" className="flex items-center">
-              <Image src="/brevi-logo.png" alt="BREVI" width={140} height={50} className="h-10 sm:h-12 w-auto" priority />
+              <Image
+                src={branding.logo}
+                alt={branding.siteName}
+                width={140}
+                height={50}
+                className="h-10 sm:h-12 w-auto"
+                priority
+              />
             </Link>
 
             {/* Center Navigation - Hidden on mobile */}

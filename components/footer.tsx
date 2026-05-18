@@ -2,6 +2,7 @@
 
 import { Mail, MessageCircle, ChevronUp } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useState, useEffect } from "react"
 import { subscribeToNewsletter } from "@/app/actions/newsletter"
 import { getCMSContent } from "@/app/actions/cms"
@@ -10,31 +11,35 @@ import {
   mergeFooterCMSContent,
   type FooterCMSContent,
 } from "@/lib/footer-cms-defaults"
+import { mergeBrandingCMSContent } from "@/lib/branding-cms-defaults"
 
 export function Footer() {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
-  const [currentYear, setCurrentYear] = useState(2025)
   const [firstName, setFirstName] = useState("")
   const [email, setEmail] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [footerCms, setFooterCms] = useState<FooterCMSContent>(() =>
     mergeFooterCMSContent(null)
   )
-
-  useEffect(() => {
-    setCurrentYear(new Date().getFullYear())
-  }, [])
+  const [headerLogo, setHeaderLogo] = useState("")
+  const [siteName, setSiteName] = useState("BREVI")
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
-        const result = await getCMSContent("footer")
+        const [footerResult, brandingResult] = await Promise.all([
+          getCMSContent("footer"),
+          getCMSContent("branding"),
+        ])
         if (!cancelled) {
-          setFooterCms(mergeFooterCMSContent(result.data))
+          setFooterCms(mergeFooterCMSContent(footerResult.data))
+          const branding = mergeBrandingCMSContent(brandingResult.data)
+          setHeaderLogo(branding.logo)
+          setSiteName(branding.siteName)
         }
       } catch {
         if (!cancelled) setFooterCms(mergeFooterCMSContent(null))
@@ -46,6 +51,7 @@ export function Footer() {
   }, [])
 
   const touch = footerCms.getInTouch
+  const footerLogo = footerCms.logo.trim() || headerLogo
 
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,15 +81,23 @@ export function Footer() {
 
   return (
     <footer className="bg-[#2A2A2A] text-white py-16 px-4 md:px-6 lg:px-8 relative">
-      {/* BREVI Logo at top */}
       <div className="container mb-12">
         <div className="flex flex-col items-center">
-          <div className="w-32 h-px bg-white mb-2"></div>
-          <Link href="/" className="text-3xl font-bold tracking-widest">
-            BREVI
+          <div className="w-32 h-px bg-white mb-4"></div>
+          <Link href="/" className="flex items-center justify-center">
+            {footerLogo ? (
+              <Image
+                src={footerLogo}
+                alt={siteName}
+                width={160}
+                height={56}
+                className="h-12 sm:h-14 w-auto brightness-0 invert"
+              />
+            ) : (
+              <span className="text-3xl font-bold tracking-widest">{siteName}</span>
+            )}
           </Link>
-          <div className="w-32 h-px bg-white mt-2"></div>
-          <span className="text-xs mt-1">™</span>
+          <div className="w-32 h-px bg-white mt-4"></div>
         </div>
       </div>
 
@@ -180,12 +194,7 @@ export function Footer() {
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-8 border-t border-gray-700">
           {/* Copyright */}
           <div className="flex flex-col md:flex-row items-center gap-4">
-            <p className="text-sm">
-              Copyright © {currentYear}{" "}
-              <Link href="/" className="underline hover:text-gray-300 transition-colors">
-                BREVI
-              </Link>
-            </p>
+            <p className="text-sm">{footerCms.copyright}</p>
             {/* Powered by OAFFLU */}
             <Link 
               href="https://oafflu.com" 

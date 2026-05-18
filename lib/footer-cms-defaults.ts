@@ -11,6 +11,7 @@ export type FooterGetInTouch = {
 export type FooterLink = { label: string; url: string }
 
 export type FooterCMSContent = {
+  logo: string
   copyright: string
   links: FooterLink[]
   newsletter: {
@@ -49,6 +50,7 @@ export function mergeFooterCMSContent(raw: unknown): FooterCMSContent {
     : null
 
   return {
+    logo: typeof saved.logo === "string" ? saved.logo : "",
     copyright:
       typeof saved.copyright === 'string' && saved.copyright.trim()
         ? saved.copyright
