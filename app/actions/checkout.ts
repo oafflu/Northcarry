@@ -40,6 +40,9 @@ interface CheckoutFormData {
   linkedSubscriptionId?: string // Stripe subscription for linked (future-billed) items
   isSubscription?: boolean // Whether this is a subscription checkout
   chargedAmount?: number // Actual charged amount from payment intent
+  externalGateway?: string
+  externalTransactionId?: string
+  externalPaymentStatus?: 'paid' | 'pending' | 'failed'
 }
 
 /**
@@ -1253,7 +1256,16 @@ export async function createOrder(formData: CheckoutFormData) {
   let paymentStatus = 'pending'
 
   // Verify payment for subscriptions or payment intents
-  if (subscriptionId && formData.isSubscription) {
+  if (formData.externalGateway && formData.externalTransactionId) {
+    if (formData.externalPaymentStatus === 'paid') {
+      paymentStatus = 'paid'
+    } else {
+      return {
+        success: false,
+        error: 'External payment is not marked as paid',
+      }
+    }
+  } else if (subscriptionId && formData.isSubscription) {
     try {
       // Get Stripe configuration
       const { data: stripeSetting } = await supabase
@@ -1412,6 +1424,26 @@ export async function createOrder(formData: CheckoutFormData) {
     }
   }
 
+  // Idempotency guard for external gateway transaction references
+  if (formData.externalTransactionId) {
+    const { data: existingByExternal } = await supabase
+      .from('orders')
+      .select('id, order_number, user_id')
+      .eq('external_payment_gateway', formData.externalGateway || null)
+      .eq('external_payment_reference', formData.externalTransactionId)
+      .maybeSingle()
+
+    if (existingByExternal) {
+      return {
+        success: true,
+        orderId: existingByExternal.id,
+        orderNumber: existingByExternal.order_number,
+        paymentStatus: paymentStatus || 'paid',
+        userId: existingByExternal.user_id || null,
+      }
+    }
+  }
+
   // Validate required fields before creating order
   if (!formData.email || !formData.firstName || !formData.lastName) {
     return { 
@@ -1455,6 +1487,21 @@ export async function createOrder(formData: CheckoutFormData) {
       billing_address: formData.billingAddress,
       payment_status: paymentStatus,
       fulfillment_status: 'unfulfilled',
+      external_payment_gateway: formData.externalTransactionId ? (formData.externalGateway || null) : null,
+      external_payment_reference: formData.externalTransactionId || null,
+      external_payment_status: formData.externalTransactionId
+        ? (formData.externalPaymentStatus || paymentStatus)
+        : null,
+      external_payment_verified_at:
+        formData.externalTransactionId && (formData.externalPaymentStatus || paymentStatus) === 'paid'
+          ? new Date().toISOString()
+          : null,
+      metadata: formData.externalTransactionId
+        ? {
+            external_gateway: formData.externalGateway,
+            external_transaction_id: formData.externalTransactionId,
+          }
+        : undefined,
     }
 
     if (paymentIntentId) {

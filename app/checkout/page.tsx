@@ -75,6 +75,10 @@ export default function CheckoutPage() {
   const [availableShippingMethods, setAvailableShippingMethods] = useState<any[]>([])
   const [loadingShipping, setLoadingShipping] = useState(true)
   const [taxExemptions, setTaxExemptions] = useState<TaxExemptionEntry[]>([])
+  const [externalProcessing, setExternalProcessing] = useState(false)
+  const [externalGatewayVerificationPending, setExternalGatewayVerificationPending] = useState(false)
+
+  const externalGatewayIds = ['2checkout', 'kora', 'chipper', 'paystack']
 
   // Calculate shipping cost based on selected method
   const selectedShipping = availableShippingMethods.find(m => m.id === shippingMethod)
@@ -274,6 +278,67 @@ export default function CheckoutPage() {
   }, [user?.id])
 
   // Create payment intent when form is ready
+  const startExternalGatewayCheckout = async (gateway: string) => {
+    const snapshot = {
+      userId: user?.id,
+      email,
+      firstName,
+      lastName,
+      phone: phone || undefined,
+      shippingAddress: {
+        address_line1: addressLine1,
+        address_line2: addressLine2 || undefined,
+        city,
+        state,
+        postal_code: postalCode,
+        country,
+      },
+      billingAddress: {
+        address_line1: addressLine1,
+        address_line2: addressLine2 || undefined,
+        city,
+        state,
+        postal_code: postalCode,
+        country,
+      },
+      shippingMethod,
+      discountCode: discountCode && discountCode.trim() && !discountError ? discountCode.trim() : undefined,
+      paymentMethod: gateway,
+    }
+
+    try {
+      localStorage.setItem('externalCheckoutSnapshot', JSON.stringify(snapshot))
+      setExternalProcessing(true)
+
+      const response = await fetch('/api/payments/external/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gateway,
+          amount: total,
+          currency: 'USD',
+          email,
+          metadata: {
+            cart_items: items.length,
+            shipping_method: shippingMethod,
+          },
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok || !result?.redirectUrl) {
+        throw new Error(result?.error || `Failed to initialize ${gateway} checkout`)
+      }
+      window.location.href = result.redirectUrl
+    } catch (err: any) {
+      console.error('External gateway initialize error:', err)
+      setError(err?.message || 'Failed to initialize external gateway checkout')
+      toast.error('Payment initialization failed', {
+        description: err?.message || 'Failed to initialize external gateway checkout',
+      })
+      setExternalProcessing(false)
+    }
+  }
+
   const handlePreparePayment = async () => {
     console.log('handlePreparePayment called')
     setError("")
@@ -300,6 +365,11 @@ export default function CheckoutPage() {
 
     if (!shippingMethod) {
       setError("Please select a shipping method")
+      return
+    }
+
+    if (externalGatewayIds.includes(paymentMethod)) {
+      await startExternalGatewayCheckout(paymentMethod)
       return
     }
 
@@ -443,6 +513,68 @@ export default function CheckoutPage() {
       setIsSubmitting(false)
     }
   }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const status = params.get('payment_status')
+    const gateway = params.get('gateway')
+    const reference = params.get('reference')
+    if (status !== 'success' || !gateway || !reference) return
+    if (!externalGatewayIds.includes(gateway)) return
+    if (externalGatewayVerificationPending) return
+
+    const completeExternalPayment = async () => {
+      setExternalGatewayVerificationPending(true)
+      try {
+        const verifyRes = await fetch('/api/payments/external/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gateway, reference }),
+        })
+        const verifyData = await verifyRes.json()
+        if (!verifyRes.ok || !verifyData?.paid) {
+          throw new Error(verifyData?.error || `Unable to verify ${gateway} payment`)
+        }
+
+        const snapshotRaw = localStorage.getItem('externalCheckoutSnapshot')
+        if (!snapshotRaw) {
+          throw new Error('Checkout snapshot missing. Please place the order again.')
+        }
+        const snapshot = JSON.parse(snapshotRaw)
+        const orderResult = await createOrder({
+          ...snapshot,
+          paymentMethod: gateway,
+          externalGateway: gateway,
+          externalTransactionId: reference,
+          externalPaymentStatus: 'paid',
+        } as any)
+
+        if (!orderResult.success) {
+          throw new Error(orderResult.error || 'Order creation failed after payment verification')
+        }
+
+        localStorage.removeItem('externalCheckoutSnapshot')
+        await clearCart()
+        const isNewAccount = !user?.id
+        router.replace(
+          `/thank-you?order=${orderResult.orderNumber}&id=${orderResult.orderId}${isNewAccount ? '&account=new' : ''}`
+        )
+      } catch (err: any) {
+        console.error('External payment completion error:', err)
+        setError(err?.message || 'Failed to complete external payment')
+        toast.error('Payment verification failed', {
+          description: err?.message || 'Failed to complete external payment',
+        })
+      } finally {
+        setExternalGatewayVerificationPending(false)
+        setExternalProcessing(false)
+      }
+    }
+
+    completeExternalPayment()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalGatewayVerificationPending, user?.id, clearCart, router])
 
   // Handle payment success - create order
   const handlePaymentSuccess = async (confirmedPaymentIntentId: string) => {
@@ -1033,10 +1165,10 @@ export default function CheckoutPage() {
                   type="button"
                   onClick={handlePreparePayment}
                   className="w-full h-14 text-lg font-semibold bg-blue-600 hover:bg-blue-700"
-                  disabled={isSubmitting || items.length === 0 || !shippingMethod}
+                  disabled={isSubmitting || externalProcessing || items.length === 0 || !shippingMethod}
                 >
                   <Lock className="w-5 h-5 mr-2" />
-                  {isSubmitting ? "Preparing payment..." : "Continue to Payment"}
+                  {isSubmitting || externalProcessing ? "Preparing payment..." : "Continue to Payment"}
                 </Button>
               )}
             </div>

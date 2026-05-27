@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 import { Save, CreditCard, CheckCircle2, XCircle, Image as ImageIcon, Plus, Trash2 } from 'lucide-react'
 import { ImagePicker } from '@/components/admin/image-picker'
 import Image from 'next/image'
+import { DEFAULT_EXTERNAL_GATEWAY_SETTINGS, normalizeExternalGatewaySettings } from '@/lib/external-gateways'
 
 export default function PaymentSettingsPage() {
   const [loading, setLoading] = useState(true)
@@ -36,6 +37,10 @@ export default function PaymentSettingsPage() {
     secret_key: '',
     environment: 'sandbox',
   })
+  const [twoCheckoutSettings, setTwoCheckoutSettings] = useState(DEFAULT_EXTERNAL_GATEWAY_SETTINGS)
+  const [koraSettings, setKoraSettings] = useState(DEFAULT_EXTERNAL_GATEWAY_SETTINGS)
+  const [chipperSettings, setChipperSettings] = useState(DEFAULT_EXTERNAL_GATEWAY_SETTINGS)
+  const [paystackSettings, setPaystackSettings] = useState(DEFAULT_EXTERNAL_GATEWAY_SETTINGS)
   const [stripePaymentMethods, setStripePaymentMethods] = useState<any[]>([])
   const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<Record<string, boolean>>({})
   const [loadingMethods, setLoadingMethods] = useState(false)
@@ -91,10 +96,14 @@ export default function PaymentSettingsPage() {
 
   const loadSettings = async () => {
     setLoading(true)
-    const [stripeResult, paypalResult, afterpayResult, imagesResult] = await Promise.all([
+    const [stripeResult, paypalResult, afterpayResult, twoCheckoutResult, koraResult, chipperResult, paystackResult, imagesResult] = await Promise.all([
       getSetting('stripe'),
       getSetting('paypal'),
       getSetting('afterpay'),
+      getSetting('2checkout'),
+      getSetting('kora'),
+      getSetting('chipper'),
+      getSetting('paystack'),
       getPaymentMethodImages(),
     ])
     if (stripeResult.data) {
@@ -108,6 +117,10 @@ export default function PaymentSettingsPage() {
     }
     if (paypalResult.data) setPaypalSettings(paypalResult.data as any)
     if (afterpayResult.data) setAfterpaySettings(afterpayResult.data as any)
+    setTwoCheckoutSettings(normalizeExternalGatewaySettings(twoCheckoutResult.data))
+    setKoraSettings(normalizeExternalGatewaySettings(koraResult.data))
+    setChipperSettings(normalizeExternalGatewaySettings(chipperResult.data))
+    setPaystackSettings(normalizeExternalGatewaySettings(paystackResult.data))
     if (imagesResult.data) setPaymentMethodImages(imagesResult.data)
     setLoading(false)
   }
@@ -115,21 +128,29 @@ export default function PaymentSettingsPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const [stripeResult, paypalResult, afterpayResult, paymentMethodsResult, imagesResult] = await Promise.all([
+      const [stripeResult, paypalResult, afterpayResult, twoCheckoutResult, koraResult, chipperResult, paystackResult, paymentMethodsResult, imagesResult] = await Promise.all([
         saveSetting('stripe', stripeSettings, 'payment', 'Stripe payment gateway settings'),
         saveSetting('paypal', paypalSettings, 'payment', 'PayPal payment gateway settings'),
         saveSetting('afterpay', afterpaySettings, 'payment', 'AfterPay payment gateway settings'),
+        saveSetting('2checkout', twoCheckoutSettings, 'payment', '2Checkout payment gateway settings'),
+        saveSetting('kora', koraSettings, 'payment', 'Kora payment gateway settings'),
+        saveSetting('chipper', chipperSettings, 'payment', 'Chipper payment gateway settings'),
+        saveSetting('paystack', paystackSettings, 'payment', 'Paystack payment gateway settings'),
         savePaymentMethods(enabledPaymentMethods),
         savePaymentMethodImages(paymentMethodImages),
       ])
       
-      if (stripeResult.success && paypalResult.success && afterpayResult.success && paymentMethodsResult.success && imagesResult.success) {
+      if (stripeResult.success && paypalResult.success && afterpayResult.success && twoCheckoutResult.success && koraResult.success && chipperResult.success && paystackResult.success && paymentMethodsResult.success && imagesResult.success) {
         toast.success('Payment settings saved successfully!')
       } else {
         const errors = [
           !stripeResult.success && `Stripe: ${stripeResult.error}`,
           !paypalResult.success && `PayPal: ${paypalResult.error}`,
           !afterpayResult.success && `AfterPay: ${afterpayResult.error}`,
+          !twoCheckoutResult.success && `2Checkout: ${twoCheckoutResult.error}`,
+          !koraResult.success && `Kora: ${koraResult.error}`,
+          !chipperResult.success && `Chipper: ${chipperResult.error}`,
+          !paystackResult.success && `Paystack: ${paystackResult.error}`,
           !paymentMethodsResult.success && `Payment Methods: ${paymentMethodsResult.error}`,
           !imagesResult.success && `Payment Images: ${imagesResult.error}`,
         ].filter(Boolean).join(', ')
@@ -150,6 +171,119 @@ export default function PaymentSettingsPage() {
     }))
   }
 
+  const renderExternalGatewayCard = (
+    title: string,
+    settings: any,
+    setSettings: (value: any) => void,
+    docsUrl?: string
+  ) => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CreditCard className="w-5 h-5" />
+          {title} Configuration
+        </CardTitle>
+        <CardDescription>
+          Configure {title} checkout integration.
+          {docsUrl ? (
+            <>
+              {' '}
+              <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                Documentation
+              </a>
+            </>
+          ) : null}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Enable {title}</Label>
+            <p className="text-sm text-gray-500">Show this gateway at checkout</p>
+          </div>
+          <Switch
+            checked={settings.enabled}
+            onCheckedChange={(checked) => setSettings({ ...settings, enabled: checked })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Public Key</Label>
+          <Input
+            value={settings.public_key}
+            onChange={(e) => setSettings({ ...settings, public_key: e.target.value })}
+            placeholder="Public/API key"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Secret Key</Label>
+          <Input
+            type="password"
+            value={settings.secret_key}
+            onChange={(e) => setSettings({ ...settings, secret_key: e.target.value })}
+            placeholder="Secret key"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Mode</Label>
+          <Select
+            value={settings.mode}
+            onValueChange={(value) => setSettings({ ...settings, mode: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sandbox">Sandbox</SelectItem>
+              <SelectItem value="live">Live</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Initialize URL (optional)</Label>
+          <Input
+            value={settings.initialize_url}
+            onChange={(e) => setSettings({ ...settings, initialize_url: e.target.value })}
+            placeholder="https://api.provider.com/initialize"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Verify URL (optional)</Label>
+          <Input
+            value={settings.verify_url}
+            onChange={(e) => setSettings({ ...settings, verify_url: e.target.value })}
+            placeholder="https://api.provider.com/verify/{reference}"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Hosted checkout URL template (optional)</Label>
+          <Input
+            value={settings.checkout_url_template}
+            onChange={(e) => setSettings({ ...settings, checkout_url_template: e.target.value })}
+            placeholder="https://.../checkout?reference={reference}&amount={amount}&email={email}"
+          />
+          <p className="text-xs text-gray-500">
+            Supported placeholders: {'{reference}'}, {'{amount}'}, {'{currency}'}, {'{email}'}, {'{callback_url}'}.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Callback URL (optional)</Label>
+          <Input
+            value={settings.callback_url}
+            onChange={(e) => setSettings({ ...settings, callback_url: e.target.value })}
+            placeholder="https://your-site.com/checkout?payment_status=success&gateway=..."
+          />
+        </div>
+      </CardContent>
+    </Card>
+  )
+
   if (loading) {
     return <div className="p-8 text-center">Loading settings...</div>
   }
@@ -166,6 +300,10 @@ export default function PaymentSettingsPage() {
           <TabsTrigger value="stripe">Stripe</TabsTrigger>
           <TabsTrigger value="paypal">PayPal</TabsTrigger>
           <TabsTrigger value="afterpay">AfterPay</TabsTrigger>
+          <TabsTrigger value="2checkout">2Checkout</TabsTrigger>
+          <TabsTrigger value="kora">Kora</TabsTrigger>
+          <TabsTrigger value="chipper">Chipper</TabsTrigger>
+          <TabsTrigger value="paystack">Paystack</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stripe">
@@ -607,6 +745,18 @@ export default function PaymentSettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="2checkout">
+          {renderExternalGatewayCard('2Checkout', twoCheckoutSettings, setTwoCheckoutSettings)}
+        </TabsContent>
+        <TabsContent value="kora">
+          {renderExternalGatewayCard('Kora', koraSettings, setKoraSettings)}
+        </TabsContent>
+        <TabsContent value="chipper">
+          {renderExternalGatewayCard('Chipper', chipperSettings, setChipperSettings)}
+        </TabsContent>
+        <TabsContent value="paystack">
+          {renderExternalGatewayCard('Paystack', paystackSettings, setPaystackSettings, 'https://paystack.com/docs')}
         </TabsContent>
       </Tabs>
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { getSetting } from '@/app/actions/settings'
+import { EXTERNAL_GATEWAY_LABELS, EXTERNAL_GATEWAY_KEYS } from '@/lib/external-gateways'
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,14 +17,6 @@ export async function GET(req: NextRequest) {
       .single()
 
     const stripeConfig = stripeSetting?.setting_value as any
-
-    if (!stripeConfig?.enabled || !stripeConfig?.secret_key) {
-      // Return default card payment method if Stripe not configured
-      return NextResponse.json({ 
-        data: [{ id: 'card', name: 'Card', type: 'card', enabled: true }], 
-        error: null 
-      })
-    }
 
     // Get enabled payment methods from admin settings
     const { data: enabledMethodsSetting } = await adminSupabase
@@ -64,7 +57,10 @@ export async function GET(req: NextRequest) {
         type: method.type,
         stripeType: method.type,
         icon: method.icon,
-        enabled: enabledMethods[method.id] ?? (method.id === 'card'), // Card is enabled by default
+        enabled:
+          stripeConfig?.enabled && stripeConfig?.secret_key
+            ? (enabledMethods[method.id] ?? (method.id === 'card'))
+            : method.id === 'card',
         category: method.id === 'card' ? 'cards' : 
                   ['apple_pay', 'google_pay', 'link'].includes(method.id) ? 'wallet' : 
                   'buy_now_pay_later',
@@ -73,8 +69,30 @@ export async function GET(req: NextRequest) {
       }
     })
 
+    // Add externally integrated gateways (2Checkout, Kora, Chipper, Paystack)
+    const externalSettingsEntries = await Promise.all(
+      EXTERNAL_GATEWAY_KEYS.map(async (key) => {
+        const result = await getSetting(key)
+        return { key, settings: (result.data as any) || null }
+      })
+    )
+
+    const externalMethods = externalSettingsEntries
+      .filter(({ settings }) => settings?.enabled === true)
+      .map(({ key }) => ({
+        id: key,
+        name: EXTERNAL_GATEWAY_LABELS[key],
+        type: key,
+        stripeType: undefined,
+        icon: '💳',
+        enabled: true,
+        category: 'wallet',
+        imageUrl: paymentMethodImages[key]?.imageUrl,
+        cardImages: undefined,
+      }))
+
     // Filter to only return enabled methods
-    const enabledMethodsList = methods.filter((method: any) => method.enabled)
+    const enabledMethodsList = [...methods.filter((method: any) => method.enabled), ...externalMethods]
     
     return NextResponse.json({ data: enabledMethodsList, error: null })
   } catch (error: any) {
