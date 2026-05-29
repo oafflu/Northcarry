@@ -32,7 +32,7 @@ export default function CheckoutPage() {
   const [email, setEmail] = useState(user?.email || "")
   const [showEmailOffers, setShowEmailOffers] = useState(false)
   const [shippingMethod, setShippingMethod] = useState<string>("")
-  const [paymentMethod, setPaymentMethod] = useState("card")
+  const [paymentMethod, setPaymentMethod] = useState("")
   const [discountCode, setDiscountCode] = useState("")
   const [discountAmount, setDiscountAmount] = useState(0)
   const [discountError, setDiscountError] = useState<string | null>(null)
@@ -153,6 +153,15 @@ export default function CheckoutPage() {
         const result = await response.json()
         if (result.data) {
           setAvailablePaymentMethods(result.data)
+          if (result.data.length > 0) {
+            const first = result.data[0]
+            setPaymentMethod((current) => {
+              const isCurrentValid = result.data.some(
+                (m: any) => (m.stripeType || m.type) === current
+              )
+              return isCurrentValid ? current : first.stripeType || first.type
+            })
+          }
         }
       } catch (error) {
         console.error('Error loading payment methods:', error)
@@ -365,6 +374,11 @@ export default function CheckoutPage() {
 
     if (!shippingMethod) {
       setError("Please select a shipping method")
+      return
+    }
+
+    if (!paymentMethod) {
+      setError("Please select a payment method")
       return
     }
 
@@ -1165,7 +1179,7 @@ export default function CheckoutPage() {
                   type="button"
                   onClick={handlePreparePayment}
                   className="w-full h-14 text-lg font-semibold bg-blue-600 hover:bg-blue-700"
-                  disabled={isSubmitting || externalProcessing || items.length === 0 || !shippingMethod}
+                  disabled={isSubmitting || externalProcessing || items.length === 0 || !shippingMethod || !paymentMethod}
                 >
                   <Lock className="w-5 h-5 mr-2" />
                   {isSubmitting || externalProcessing ? "Preparing payment..." : "Continue to Payment"}

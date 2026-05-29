@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getSetting, saveSetting } from '@/app/actions/settings'
-import { getStripePaymentMethods, savePaymentMethods, getPaymentMethodImages, savePaymentMethodImages } from '@/app/actions/payment-methods'
+import { getStripePaymentMethods, savePaymentMethods, getPaymentMethodImages, savePaymentMethodImages, getPaymentMethodLabels, savePaymentMethodLabels } from '@/app/actions/payment-methods'
 import { toast } from 'sonner'
 import { Save, CreditCard, CheckCircle2, XCircle, Image as ImageIcon, Plus, Trash2 } from 'lucide-react'
 import { ImagePicker } from '@/components/admin/image-picker'
@@ -46,6 +46,7 @@ export default function PaymentSettingsPage() {
   const [loadingMethods, setLoadingMethods] = useState(false)
   const [paymentMethodsError, setPaymentMethodsError] = useState<string | null>(null)
   const [paymentMethodImages, setPaymentMethodImages] = useState<Record<string, { imageUrl?: string; cardImages?: Array<{ name: string; url: string; alt: string }> }>>({})
+  const [paymentMethodLabels, setPaymentMethodLabels] = useState<Record<string, string>>({})
 
   useEffect(() => {
     loadSettings()
@@ -96,7 +97,7 @@ export default function PaymentSettingsPage() {
 
   const loadSettings = async () => {
     setLoading(true)
-    const [stripeResult, paypalResult, afterpayResult, twoCheckoutResult, koraResult, chipperResult, paystackResult, imagesResult] = await Promise.all([
+    const [stripeResult, paypalResult, afterpayResult, twoCheckoutResult, koraResult, chipperResult, paystackResult, imagesResult, labelsResult] = await Promise.all([
       getSetting('stripe'),
       getSetting('paypal'),
       getSetting('afterpay'),
@@ -105,6 +106,7 @@ export default function PaymentSettingsPage() {
       getSetting('chipper'),
       getSetting('paystack'),
       getPaymentMethodImages(),
+      getPaymentMethodLabels(),
     ])
     if (stripeResult.data) {
       const data = stripeResult.data as any
@@ -122,13 +124,14 @@ export default function PaymentSettingsPage() {
     setChipperSettings(normalizeExternalGatewaySettings(chipperResult.data))
     setPaystackSettings(normalizeExternalGatewaySettings(paystackResult.data))
     if (imagesResult.data) setPaymentMethodImages(imagesResult.data)
+    if (labelsResult.data) setPaymentMethodLabels(labelsResult.data)
     setLoading(false)
   }
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      const [stripeResult, paypalResult, afterpayResult, twoCheckoutResult, koraResult, chipperResult, paystackResult, paymentMethodsResult, imagesResult] = await Promise.all([
+      const [stripeResult, paypalResult, afterpayResult, twoCheckoutResult, koraResult, chipperResult, paystackResult, paymentMethodsResult, imagesResult, labelsResult] = await Promise.all([
         saveSetting('stripe', stripeSettings, 'payment', 'Stripe payment gateway settings'),
         saveSetting('paypal', paypalSettings, 'payment', 'PayPal payment gateway settings'),
         saveSetting('afterpay', afterpaySettings, 'payment', 'AfterPay payment gateway settings'),
@@ -138,9 +141,10 @@ export default function PaymentSettingsPage() {
         saveSetting('paystack', paystackSettings, 'payment', 'Paystack payment gateway settings'),
         savePaymentMethods(enabledPaymentMethods),
         savePaymentMethodImages(paymentMethodImages),
+        savePaymentMethodLabels(paymentMethodLabels),
       ])
       
-      if (stripeResult.success && paypalResult.success && afterpayResult.success && twoCheckoutResult.success && koraResult.success && chipperResult.success && paystackResult.success && paymentMethodsResult.success && imagesResult.success) {
+      if (stripeResult.success && paypalResult.success && afterpayResult.success && twoCheckoutResult.success && koraResult.success && chipperResult.success && paystackResult.success && paymentMethodsResult.success && imagesResult.success && labelsResult.success) {
         toast.success('Payment settings saved successfully!')
       } else {
         const errors = [
@@ -153,6 +157,7 @@ export default function PaymentSettingsPage() {
           !paystackResult.success && `Paystack: ${paystackResult.error}`,
           !paymentMethodsResult.success && `Payment Methods: ${paymentMethodsResult.error}`,
           !imagesResult.success && `Payment Images: ${imagesResult.error}`,
+          !labelsResult.success && `Payment Labels: ${labelsResult.error}`,
         ].filter(Boolean).join(', ')
         toast.error(`Failed to save some settings: ${errors}`)
       }
@@ -240,6 +245,18 @@ export default function PaymentSettingsPage() {
               <SelectItem value="live">Live</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Checkout label</Label>
+          <Input
+            value={settings.checkout_label}
+            onChange={(e) => setSettings({ ...settings, checkout_label: e.target.value })}
+            placeholder={title}
+          />
+          <p className="text-xs text-gray-500">
+            Label shown to customers on checkout (e.g. Debit/credit cards). Leave blank to use the default name.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -439,34 +456,54 @@ export default function PaymentSettingsPage() {
                             {methods.map((method: any) => (
                               <div
                                 key={method.id}
-                                className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                                className={`p-4 border-2 rounded-lg transition-colors ${
                                   enabledPaymentMethods[method.id]
                                     ? 'border-blue-600 bg-blue-50'
                                     : 'border-gray-200 hover:border-gray-300'
                                 }`}
-                                onClick={() => togglePaymentMethod(method.id)}
                               >
-                                <div className="flex items-center gap-3">
-                                  <span className="text-2xl">{method.icon}</span>
-                                  <div>
-                                    <div className="font-medium">{method.name}</div>
-                                    <div className="text-xs text-gray-500">
-                                      {method.popularIn.join(', ')}
+                                <div
+                                  className="flex items-center justify-between cursor-pointer"
+                                  onClick={() => togglePaymentMethod(method.id)}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-2xl">{method.icon}</span>
+                                    <div>
+                                      <div className="font-medium">{method.name}</div>
+                                      <div className="text-xs text-gray-500">
+                                        {method.popularIn.join(', ')}
+                                      </div>
                                     </div>
                                   </div>
+                                  <div className="flex items-center gap-2">
+                                    {enabledPaymentMethods[method.id] ? (
+                                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                    ) : (
+                                      <XCircle className="w-5 h-5 text-gray-400" />
+                                    )}
+                                    <Switch
+                                      checked={enabledPaymentMethods[method.id] || false}
+                                      onCheckedChange={() => togglePaymentMethod(method.id)}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  {enabledPaymentMethods[method.id] ? (
-                                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                                  ) : (
-                                    <XCircle className="w-5 h-5 text-gray-400" />
-                                  )}
-                                  <Switch
-                                    checked={enabledPaymentMethods[method.id] || false}
-                                    onCheckedChange={() => togglePaymentMethod(method.id)}
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                </div>
+                                {enabledPaymentMethods[method.id] && (
+                                  <div className="mt-3 pt-3 border-t border-blue-100" onClick={(e) => e.stopPropagation()}>
+                                    <Label className="text-xs text-gray-600">Checkout label</Label>
+                                    <Input
+                                      value={paymentMethodLabels[method.id] || ''}
+                                      onChange={(e) =>
+                                        setPaymentMethodLabels({
+                                          ...paymentMethodLabels,
+                                          [method.id]: e.target.value,
+                                        })
+                                      }
+                                      placeholder={method.name}
+                                      className="mt-1"
+                                    />
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>

@@ -36,6 +36,17 @@ export async function GET(req: NextRequest) {
 
     const paymentMethodImages = (paymentMethodImagesSetting?.setting_value as Record<string, { imageUrl?: string; cardImages?: Array<{ name: string; url: string; alt: string }> }>) || {}
 
+    const { data: paymentMethodLabelsSetting } = await adminSupabase
+      .from('admin_settings')
+      .select('setting_value')
+      .eq('setting_key', 'payment_method_labels')
+      .single()
+
+    const paymentMethodLabels =
+      (paymentMethodLabelsSetting?.setting_value as Record<string, string>) || {}
+
+    const stripeEnabled = Boolean(stripeConfig?.enabled && stripeConfig?.secret_key)
+
     // Define available payment method types
     const paymentMethodTypes = [
       { id: 'card', name: 'Card', type: 'card', icon: '💳' },
@@ -51,16 +62,16 @@ export async function GET(req: NextRequest) {
 
     const methods = paymentMethodTypes.map((method) => {
       const methodImages = paymentMethodImages[method.id] || {}
+      const customLabel = paymentMethodLabels[method.id]?.trim()
       return {
         id: method.id,
-        name: method.name,
+        name: customLabel || method.name,
         type: method.type,
         stripeType: method.type,
         icon: method.icon,
-        enabled:
-          stripeConfig?.enabled && stripeConfig?.secret_key
-            ? (enabledMethods[method.id] ?? (method.id === 'card'))
-            : method.id === 'card',
+        enabled: stripeEnabled
+          ? (enabledMethods[method.id] ?? (method.id === 'card'))
+          : false,
         category: method.id === 'card' ? 'cards' : 
                   ['apple_pay', 'google_pay', 'link'].includes(method.id) ? 'wallet' : 
                   'buy_now_pay_later',
@@ -79,9 +90,14 @@ export async function GET(req: NextRequest) {
 
     const externalMethods = externalSettingsEntries
       .filter(({ settings }) => settings?.enabled === true)
-      .map(({ key }) => ({
+      .map(({ key, settings }) => {
+        const customLabel =
+          settings?.checkout_label?.trim() ||
+          paymentMethodLabels[key]?.trim() ||
+          EXTERNAL_GATEWAY_LABELS[key]
+        return {
         id: key,
-        name: EXTERNAL_GATEWAY_LABELS[key],
+        name: customLabel,
         type: key,
         stripeType: undefined,
         icon: '💳',
@@ -89,7 +105,7 @@ export async function GET(req: NextRequest) {
         category: 'wallet',
         imageUrl: paymentMethodImages[key]?.imageUrl,
         cardImages: undefined,
-      }))
+      }}))
 
     // Filter to only return enabled methods
     const enabledMethodsList = [...methods.filter((method: any) => method.enabled), ...externalMethods]
@@ -97,11 +113,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ data: enabledMethodsList, error: null })
   } catch (error: any) {
     console.error('Error fetching payment methods:', error)
-    // Return default card payment method on error
-    return NextResponse.json({ 
-      data: [{ id: 'card', name: 'Card', type: 'card', stripeType: 'card', enabled: true, category: 'cards', icon: '💳' }], 
-      error: null 
-    })
+    // Do not expose a fallback payment method when settings cannot be loaded
+    return NextResponse.json({ data: [], error: null })
   }
 }
 

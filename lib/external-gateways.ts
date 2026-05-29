@@ -24,6 +24,8 @@ export type ExternalGatewaySettings = {
   checkout_url_template: string
   callback_url: string
   webhook_secret: string
+  /** Label shown to customers on checkout (e.g. "Debit/credit cards") */
+  checkout_label: string
 }
 
 export const DEFAULT_EXTERNAL_GATEWAY_SETTINGS: ExternalGatewaySettings = {
@@ -36,6 +38,7 @@ export const DEFAULT_EXTERNAL_GATEWAY_SETTINGS: ExternalGatewaySettings = {
   checkout_url_template: '',
   callback_url: '',
   webhook_secret: '',
+  checkout_label: '',
 }
 
 export function normalizeExternalGatewaySettings(raw: any): ExternalGatewaySettings {
@@ -50,5 +53,6 @@ export function normalizeExternalGatewaySettings(raw: any): ExternalGatewaySetti
       typeof raw?.checkout_url_template === 'string' ? raw.checkout_url_template : '',
     callback_url: typeof raw?.callback_url === 'string' ? raw.callback_url : '',
     webhook_secret: typeof raw?.webhook_secret === 'string' ? raw.webhook_secret : '',
+    checkout_label: typeof raw?.checkout_label === 'string' ? raw.checkout_label : '',
   }
 }

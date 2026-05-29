@@ -176,3 +176,34 @@ export async function savePaymentMethodImages(images: Record<string, { imageUrl?
     return { success: false, error: error.message || 'Failed to save payment method images' }
   }
 }
+
+export async function getPaymentMethodLabels() {
+  try {
+    const result = await getSetting('payment_method_labels')
+    const labels = (result.data as Record<string, string>) || {}
+    return { data: labels, error: null }
+  } catch (error: any) {
+    console.error('Error fetching payment method labels:', error)
+    return { data: {}, error: error.message || 'Failed to fetch payment method labels' }
+  }
+}
+
+export async function savePaymentMethodLabels(labels: Record<string, string>) {
+  try {
+    const result = await saveSetting(
+      'payment_method_labels',
+      labels,
+      'payment',
+      'Checkout display labels for payment methods'
+    )
+
+    if (!result.success) {
+      return { success: false, error: result.error }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error saving payment method labels:', error)
+    return { success: false, error: error.message || 'Failed to save payment method labels' }
+  }
+}
