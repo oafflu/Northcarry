@@ -96,16 +96,17 @@ export async function GET(req: NextRequest) {
           paymentMethodLabels[key]?.trim() ||
           EXTERNAL_GATEWAY_LABELS[key]
         return {
-        id: key,
-        name: customLabel,
-        type: key,
-        stripeType: undefined,
-        icon: '💳',
-        enabled: true,
-        category: 'wallet',
-        imageUrl: paymentMethodImages[key]?.imageUrl,
-        cardImages: undefined,
-      }}))
+          id: key,
+          name: customLabel,
+          type: key,
+          stripeType: undefined,
+          icon: '💳',
+          enabled: true,
+          category: 'wallet',
+          imageUrl: paymentMethodImages[key]?.imageUrl,
+          cardImages: undefined,
+        }
+      })
 
     // Filter to only return enabled methods
     const enabledMethodsList = [...methods.filter((method: any) => method.enabled), ...externalMethods]
