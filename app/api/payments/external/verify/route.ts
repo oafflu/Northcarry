@@ -3,12 +3,16 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import {
   EXTERNAL_GATEWAY_KEYS,
   normalizeExternalGatewaySettings,
+  normalizePayoneerSettings,
   type ExternalGatewayKey,
 } from '@/lib/external-gateways'
+import { verifyPayoneerPayment } from '@/lib/payoneer-checkout'
 
 type VerifyBody = {
   gateway: ExternalGatewayKey
   reference: string
+  /** Payoneer LIST session longId (required for payoneer gateway) */
+  payoneerSessionId?: string
 }
 
 export async function POST(req: NextRequest) {
@@ -24,9 +28,31 @@ export async function POST(req: NextRequest) {
       .select('setting_value')
       .eq('setting_key', body.gateway)
       .single()
-    const settings = normalizeExternalGatewaySettings(row?.setting_value)
+    const settings =
+      body.gateway === 'payoneer'
+        ? normalizePayoneerSettings(row?.setting_value)
+        : normalizeExternalGatewaySettings(row?.setting_value)
     if (!settings.enabled) {
       return NextResponse.json({ success: false, error: `${body.gateway} is disabled` }, { status: 400 })
+    }
+
+    if (body.gateway === 'payoneer') {
+      const sessionId = body.payoneerSessionId?.trim()
+      if (!sessionId) {
+        return NextResponse.json(
+          { success: false, paid: false, error: 'Payoneer session ID is required for verification' },
+          { status: 400 }
+        )
+      }
+      const { paid, raw } = await verifyPayoneerPayment(settings, sessionId)
+      return NextResponse.json({
+        success: paid,
+        paid,
+        gateway: body.gateway,
+        reference: body.reference,
+        raw,
+        error: paid ? null : 'Payoneer payment was not completed',
+      })
     }
 
     if (body.gateway === 'paystack' && settings.secret_key) {

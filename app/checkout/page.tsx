@@ -14,6 +14,8 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { StripePaymentFormWrapper } from "@/components/stripe-payment-form"
 import { PayPalButton } from "@/components/paypal-button"
+import { PayoneerEmbeddedCheckout } from "@/components/payoneer-embedded-checkout"
+import { EXTERNAL_GATEWAY_KEYS } from "@/lib/external-gateways"
 import { getSetting } from "@/app/actions/settings"
 import { getAddresses } from "@/app/actions/addresses"
 import {
@@ -77,8 +79,14 @@ export default function CheckoutPage() {
   const [taxExemptions, setTaxExemptions] = useState<TaxExemptionEntry[]>([])
   const [externalProcessing, setExternalProcessing] = useState(false)
   const [externalGatewayVerificationPending, setExternalGatewayVerificationPending] = useState(false)
+  const [payoneerEmbedded, setPayoneerEmbedded] = useState<{
+    longId: string
+    env: 'test' | 'live'
+    reference: string
+    sessionId: string
+  } | null>(null)
 
-  const externalGatewayIds = ['2checkout', 'kora', 'chipper', 'paystack']
+  const externalGatewayIds = [...EXTERNAL_GATEWAY_KEYS]
 
   // Calculate shipping cost based on selected method
   const selectedShipping = availableShippingMethods.find(m => m.id === shippingMethod)
@@ -287,6 +295,50 @@ export default function CheckoutPage() {
   }, [user?.id])
 
   // Create payment intent when form is ready
+  const finalizeExternalPayment = async (
+    gateway: string,
+    reference: string,
+    payoneerSessionId?: string
+  ) => {
+    const verifyRes = await fetch('/api/payments/external/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gateway,
+        reference,
+        ...(payoneerSessionId ? { payoneerSessionId } : {}),
+      }),
+    })
+    const verifyData = await verifyRes.json()
+    if (!verifyRes.ok || !verifyData?.paid) {
+      throw new Error(verifyData?.error || `Unable to verify ${gateway} payment`)
+    }
+
+    const snapshotRaw = localStorage.getItem('externalCheckoutSnapshot')
+    if (!snapshotRaw) {
+      throw new Error('Checkout snapshot missing. Please place the order again.')
+    }
+    const snapshot = JSON.parse(snapshotRaw)
+    const orderResult = await createOrder({
+      ...snapshot,
+      paymentMethod: gateway,
+      externalGateway: gateway,
+      externalTransactionId: reference,
+      externalPaymentStatus: 'paid',
+    } as any)
+
+    if (!orderResult.success) {
+      throw new Error(orderResult.error || 'Order creation failed after payment verification')
+    }
+
+    localStorage.removeItem('externalCheckoutSnapshot')
+    await clearCart()
+    const isNewAccount = !user?.id
+    router.replace(
+      `/thank-you?order=${orderResult.orderNumber}&id=${orderResult.orderId}${isNewAccount ? '&account=new' : ''}`
+    )
+  }
+
   const startExternalGatewayCheckout = async (gateway: string) => {
     const snapshot = {
       userId: user?.id,
@@ -313,11 +365,12 @@ export default function CheckoutPage() {
       shippingMethod,
       discountCode: discountCode && discountCode.trim() && !discountError ? discountCode.trim() : undefined,
       paymentMethod: gateway,
+      payoneerSessionId: undefined as string | undefined,
     }
 
     try {
-      localStorage.setItem('externalCheckoutSnapshot', JSON.stringify(snapshot))
       setExternalProcessing(true)
+      setPayoneerEmbedded(null)
 
       const response = await fetch('/api/payments/external/initialize', {
         method: 'POST',
@@ -327,6 +380,9 @@ export default function CheckoutPage() {
           amount: total,
           currency: 'USD',
           email,
+          country,
+          firstName,
+          lastName,
           metadata: {
             cart_items: items.length,
             shipping_method: shippingMethod,
@@ -334,7 +390,27 @@ export default function CheckoutPage() {
         }),
       })
       const result = await response.json()
-      if (!response.ok || !result?.redirectUrl) {
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || `Failed to initialize ${gateway} checkout`)
+      }
+
+      const reference = result.reference as string
+      const payoneerSessionId = (result.payoneerSessionId as string) || undefined
+      snapshot.payoneerSessionId = payoneerSessionId
+      localStorage.setItem('externalCheckoutSnapshot', JSON.stringify(snapshot))
+
+      if (gateway === 'payoneer' && result.embedded && result.payoneer?.longId) {
+        setPayoneerEmbedded({
+          longId: result.payoneer.longId,
+          env: result.payoneer.env === 'live' ? 'live' : 'test',
+          reference,
+          sessionId: payoneerSessionId || result.payoneer.longId,
+        })
+        setExternalProcessing(false)
+        return
+      }
+
+      if (!result.redirectUrl) {
         throw new Error(result?.error || `Failed to initialize ${gateway} checkout`)
       }
       window.location.href = result.redirectUrl
@@ -345,6 +421,28 @@ export default function CheckoutPage() {
         description: err?.message || 'Failed to initialize external gateway checkout',
       })
       setExternalProcessing(false)
+    }
+  }
+
+  const handlePayoneerEmbeddedSuccess = async () => {
+    if (!payoneerEmbedded) return
+    setExternalGatewayVerificationPending(true)
+    try {
+      await finalizeExternalPayment(
+        'payoneer',
+        payoneerEmbedded.reference,
+        payoneerEmbedded.sessionId
+      )
+    } catch (err: any) {
+      console.error('Payoneer embedded completion error:', err)
+      setError(err?.message || 'Failed to complete Payoneer payment')
+      toast.error('Payment verification failed', {
+        description: err?.message || 'Failed to complete Payoneer payment',
+      })
+    } finally {
+      setExternalGatewayVerificationPending(false)
+      setExternalProcessing(false)
+      setPayoneerEmbedded(null)
     }
   }
 
@@ -541,38 +639,12 @@ export default function CheckoutPage() {
     const completeExternalPayment = async () => {
       setExternalGatewayVerificationPending(true)
       try {
-        const verifyRes = await fetch('/api/payments/external/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ gateway, reference }),
-        })
-        const verifyData = await verifyRes.json()
-        if (!verifyRes.ok || !verifyData?.paid) {
-          throw new Error(verifyData?.error || `Unable to verify ${gateway} payment`)
-        }
-
         const snapshotRaw = localStorage.getItem('externalCheckoutSnapshot')
-        if (!snapshotRaw) {
-          throw new Error('Checkout snapshot missing. Please place the order again.')
-        }
-        const snapshot = JSON.parse(snapshotRaw)
-        const orderResult = await createOrder({
-          ...snapshot,
-          paymentMethod: gateway,
-          externalGateway: gateway,
-          externalTransactionId: reference,
-          externalPaymentStatus: 'paid',
-        } as any)
-
-        if (!orderResult.success) {
-          throw new Error(orderResult.error || 'Order creation failed after payment verification')
-        }
-
-        localStorage.removeItem('externalCheckoutSnapshot')
-        await clearCart()
-        const isNewAccount = !user?.id
-        router.replace(
-          `/thank-you?order=${orderResult.orderNumber}&id=${orderResult.orderId}${isNewAccount ? '&account=new' : ''}`
+        const snapshot = snapshotRaw ? JSON.parse(snapshotRaw) : {}
+        await finalizeExternalPayment(
+          gateway,
+          reference,
+          gateway === 'payoneer' ? snapshot.payoneerSessionId : undefined
         )
       } catch (err: any) {
         console.error('External payment completion error:', err)
@@ -1057,14 +1129,16 @@ export default function CheckoutPage() {
                   <div className="text-center py-8 text-gray-500">No payment methods available. Please contact support.</div>
                 ) : (
                   <>
-                    <div className="relative my-6">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-300"></div>
+                    {paypalEnabled && (
+                      <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                          <span className="px-2 bg-white text-gray-500">OR</span>
+                        </div>
                       </div>
-                      <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-white text-gray-500">OR</span>
-                      </div>
-                    </div>
+                    )}
                     <div className="space-y-3">
                       {/* Show enabled payment methods */}
                       {availablePaymentMethods.map((method: any) => (
@@ -1082,7 +1156,11 @@ export default function CheckoutPage() {
                             name="payment"
                             value={method.stripeType || method.type}
                             checked={paymentMethod === (method.stripeType || method.type)}
-                            onChange={(e) => setPaymentMethod(e.target.value)}
+                            onChange={(e) => {
+                              setPaymentMethod(e.target.value)
+                              setPayoneerEmbedded(null)
+                              setError('')
+                            }}
                             className="w-4 h-4 text-blue-600"
                           />
                           {/* Show payment method image or icon */}
@@ -1122,6 +1200,35 @@ export default function CheckoutPage() {
               </div>
 
               {/* Payment Form - Show Stripe Elements if payment intent is ready */}
+              {payoneerEmbedded ? (
+                <div className="bg-white rounded-lg p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold">Complete Payoneer payment</h2>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setPayoneerEmbedded(null)
+                        setExternalProcessing(false)
+                      }}
+                    >
+                      Change payment method
+                    </Button>
+                  </div>
+                  <PayoneerEmbeddedCheckout
+                    longId={payoneerEmbedded.longId}
+                    env={payoneerEmbedded.env}
+                    onSuccess={() => handlePayoneerEmbeddedSuccess()}
+                    onFailure={(err: any) => {
+                      const message = err?.message || 'Payoneer payment failed'
+                      setError(message)
+                      toast.error('Payment failed', { description: message })
+                    }}
+                  />
+                </div>
+              ) : null}
+
               {showPaymentForm && clientSecret && stripePublishableKey && paymentMethod === "card" ? (
                 <div className="bg-white rounded-lg p-6">
                   <div className="flex items-center justify-between mb-4">
@@ -1179,10 +1286,24 @@ export default function CheckoutPage() {
                   type="button"
                   onClick={handlePreparePayment}
                   className="w-full h-14 text-lg font-semibold bg-blue-600 hover:bg-blue-700"
-                  disabled={isSubmitting || externalProcessing || items.length === 0 || !shippingMethod || !paymentMethod}
+                  disabled={
+                    isSubmitting ||
+                    externalProcessing ||
+                    externalGatewayVerificationPending ||
+                    payoneerEmbedded !== null ||
+                    items.length === 0 ||
+                    !shippingMethod ||
+                    !paymentMethod
+                  }
                 >
                   <Lock className="w-5 h-5 mr-2" />
-                  {isSubmitting || externalProcessing ? "Preparing payment..." : "Continue to Payment"}
+                  {isSubmitting || externalProcessing
+                    ? 'Preparing payment...'
+                    : externalGatewayIds.includes(paymentMethod)
+                      ? paymentMethod === 'payoneer'
+                        ? 'Continue to Payoneer'
+                        : 'Continue to payment'
+                      : 'Continue to Payment'}
                 </Button>
               )}
             </div>

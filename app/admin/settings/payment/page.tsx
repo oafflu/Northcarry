@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import { Save, CreditCard, CheckCircle2, XCircle, Image as ImageIcon, Plus, Trash2 } from 'lucide-react'
 import { ImagePicker } from '@/components/admin/image-picker'
 import Image from 'next/image'
-import { DEFAULT_EXTERNAL_GATEWAY_SETTINGS, normalizeExternalGatewaySettings } from '@/lib/external-gateways'
+import { DEFAULT_EXTERNAL_GATEWAY_SETTINGS, normalizeExternalGatewaySettings, normalizePayoneerSettings } from '@/lib/external-gateways'
 
 export default function PaymentSettingsPage() {
   const [loading, setLoading] = useState(true)
@@ -41,6 +41,7 @@ export default function PaymentSettingsPage() {
   const [koraSettings, setKoraSettings] = useState(DEFAULT_EXTERNAL_GATEWAY_SETTINGS)
   const [chipperSettings, setChipperSettings] = useState(DEFAULT_EXTERNAL_GATEWAY_SETTINGS)
   const [paystackSettings, setPaystackSettings] = useState(DEFAULT_EXTERNAL_GATEWAY_SETTINGS)
+  const [payoneerSettings, setPayoneerSettings] = useState(DEFAULT_EXTERNAL_GATEWAY_SETTINGS)
   const [stripePaymentMethods, setStripePaymentMethods] = useState<any[]>([])
   const [enabledPaymentMethods, setEnabledPaymentMethods] = useState<Record<string, boolean>>({})
   const [loadingMethods, setLoadingMethods] = useState(false)
@@ -97,7 +98,7 @@ export default function PaymentSettingsPage() {
 
   const loadSettings = async () => {
     setLoading(true)
-    const [stripeResult, paypalResult, afterpayResult, twoCheckoutResult, koraResult, chipperResult, paystackResult, imagesResult, labelsResult] = await Promise.all([
+    const [stripeResult, paypalResult, afterpayResult, twoCheckoutResult, koraResult, chipperResult, paystackResult, payoneerResult, imagesResult, labelsResult] = await Promise.all([
       getSetting('stripe'),
       getSetting('paypal'),
       getSetting('afterpay'),
@@ -105,6 +106,7 @@ export default function PaymentSettingsPage() {
       getSetting('kora'),
       getSetting('chipper'),
       getSetting('paystack'),
+      getSetting('payoneer'),
       getPaymentMethodImages(),
       getPaymentMethodLabels(),
     ])
@@ -123,6 +125,7 @@ export default function PaymentSettingsPage() {
     setKoraSettings(normalizeExternalGatewaySettings(koraResult.data))
     setChipperSettings(normalizeExternalGatewaySettings(chipperResult.data))
     setPaystackSettings(normalizeExternalGatewaySettings(paystackResult.data))
+    setPayoneerSettings(normalizePayoneerSettings(payoneerResult.data))
     if (imagesResult.data) setPaymentMethodImages(imagesResult.data)
     if (labelsResult.data) setPaymentMethodLabels(labelsResult.data)
     setLoading(false)
@@ -131,7 +134,18 @@ export default function PaymentSettingsPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const [stripeResult, paypalResult, afterpayResult, twoCheckoutResult, koraResult, chipperResult, paystackResult, paymentMethodsResult, imagesResult, labelsResult] = await Promise.all([
+      if (
+        payoneerSettings.enabled &&
+        (!payoneerSettings.client_id?.trim() && !payoneerSettings.public_key?.trim() || !payoneerSettings.secret_key?.trim())
+      ) {
+        toast.error('Payoneer is enabled but missing Client ID or API token')
+        setSaving(false)
+        return
+      }
+
+      const payoneerPayload = normalizePayoneerSettings(payoneerSettings)
+
+      const [stripeResult, paypalResult, afterpayResult, twoCheckoutResult, koraResult, chipperResult, paystackResult, payoneerResult, paymentMethodsResult, imagesResult, labelsResult] = await Promise.all([
         saveSetting('stripe', stripeSettings, 'payment', 'Stripe payment gateway settings'),
         saveSetting('paypal', paypalSettings, 'payment', 'PayPal payment gateway settings'),
         saveSetting('afterpay', afterpaySettings, 'payment', 'AfterPay payment gateway settings'),
@@ -139,12 +153,13 @@ export default function PaymentSettingsPage() {
         saveSetting('kora', koraSettings, 'payment', 'Kora payment gateway settings'),
         saveSetting('chipper', chipperSettings, 'payment', 'Chipper payment gateway settings'),
         saveSetting('paystack', paystackSettings, 'payment', 'Paystack payment gateway settings'),
+        saveSetting('payoneer', payoneerPayload, 'payment', 'Payoneer Checkout payment gateway settings'),
         savePaymentMethods(enabledPaymentMethods),
         savePaymentMethodImages(paymentMethodImages),
         savePaymentMethodLabels(paymentMethodLabels),
       ])
       
-      if (stripeResult.success && paypalResult.success && afterpayResult.success && twoCheckoutResult.success && koraResult.success && chipperResult.success && paystackResult.success && paymentMethodsResult.success && imagesResult.success && labelsResult.success) {
+      if (stripeResult.success && paypalResult.success && afterpayResult.success && twoCheckoutResult.success && koraResult.success && chipperResult.success && paystackResult.success && payoneerResult.success && paymentMethodsResult.success && imagesResult.success && labelsResult.success) {
         toast.success('Payment settings saved successfully!')
       } else {
         const errors = [
@@ -155,6 +170,7 @@ export default function PaymentSettingsPage() {
           !koraResult.success && `Kora: ${koraResult.error}`,
           !chipperResult.success && `Chipper: ${chipperResult.error}`,
           !paystackResult.success && `Paystack: ${paystackResult.error}`,
+          !payoneerResult.success && `Payoneer: ${payoneerResult.error}`,
           !paymentMethodsResult.success && `Payment Methods: ${paymentMethodsResult.error}`,
           !imagesResult.success && `Payment Images: ${imagesResult.error}`,
           !labelsResult.success && `Payment Labels: ${labelsResult.error}`,
@@ -175,6 +191,177 @@ export default function PaymentSettingsPage() {
       [methodId]: !prev[methodId],
     }))
   }
+
+  const renderPayoneerCard = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CreditCard className="w-5 h-5" />
+          Payoneer Checkout Configuration
+        </CardTitle>
+        <CardDescription>
+          Native Payoneer Checkout integration (hosted redirect or embedded payment page).{' '}
+          <a
+            href="https://checkoutdocs.payoneer.com/docs/about-integration-process"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline"
+          >
+            Integration guide
+          </a>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>Enable Payoneer Checkout</Label>
+            <p className="text-sm text-gray-500">Show Payoneer at checkout</p>
+          </div>
+          <Switch
+            checked={payoneerSettings.enabled}
+            onCheckedChange={(checked) => setPayoneerSettings({ ...payoneerSettings, enabled: checked })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Integration mode</Label>
+          <Select
+            value={payoneerSettings.integration_mode || 'hosted'}
+            onValueChange={(value) =>
+              setPayoneerSettings({
+                ...payoneerSettings,
+                integration_mode: value as 'hosted' | 'embedded',
+              })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hosted">Hosted payment page (redirect)</SelectItem>
+              <SelectItem value="embedded">Embedded payment page (on-site SDK)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Client ID</Label>
+          <Input
+            value={payoneerSettings.client_id || payoneerSettings.public_key}
+            onChange={(e) =>
+              setPayoneerSettings({
+                ...payoneerSettings,
+                client_id: e.target.value,
+                public_key: e.target.value,
+              })
+            }
+            placeholder="Payoneer Client ID"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>API token</Label>
+          <Input
+            type="password"
+            value={payoneerSettings.secret_key}
+            onChange={(e) => setPayoneerSettings({ ...payoneerSettings, secret_key: e.target.value })}
+            placeholder="Payoneer API token / secret key"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Mode</Label>
+          <Select
+            value={payoneerSettings.mode}
+            onValueChange={(value) => setPayoneerSettings({ ...payoneerSettings, mode: value })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sandbox">Sandbox (test)</SelectItem>
+              <SelectItem value="live">Live</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>API base URL (optional)</Label>
+          <Input
+            value={payoneerSettings.api_base_url}
+            onChange={(e) => setPayoneerSettings({ ...payoneerSettings, api_base_url: e.target.value })}
+            placeholder="https://api.sandbox.oscato.com"
+          />
+          <p className="text-xs text-gray-500">
+            Leave blank for Payoneer defaults (sandbox: api.sandbox.oscato.com, live: api.live.oscato.com).
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Checkout label</Label>
+          <Input
+            value={payoneerSettings.checkout_label}
+            onChange={(e) => setPayoneerSettings({ ...payoneerSettings, checkout_label: e.target.value })}
+            placeholder="Payoneer Checkout"
+          />
+          <p className="text-xs text-gray-500">
+            Shown on the checkout payment list when Payoneer is the only active gateway or alongside others.
+          </p>
+        </div>
+
+        {payoneerSettings.enabled && (
+          <div className="space-y-2">
+            <Label>Checkout icon (optional)</Label>
+            <ImagePicker
+              value={paymentMethodImages.payoneer?.imageUrl || ''}
+              onChange={(url) => {
+                setPaymentMethodImages({
+                  ...paymentMethodImages,
+                  payoneer: { ...(paymentMethodImages.payoneer || {}), imageUrl: url },
+                })
+              }}
+              label="Payoneer checkout icon"
+              bucket="cms-media"
+              recommendedSize="40x24px"
+              previewWidth={40}
+              previewHeight={24}
+            />
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label>Callback URL (optional)</Label>
+          <Input
+            value={payoneerSettings.callback_url}
+            onChange={(e) => setPayoneerSettings({ ...payoneerSettings, callback_url: e.target.value })}
+            placeholder="https://your-site.com/checkout?payment_status=success&gateway=payoneer&reference={reference}"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Webhook URL</Label>
+          <Input
+            readOnly
+            value={`${typeof window !== 'undefined' ? window.location.origin : ''}/api/webhooks/payoneer`}
+            className="bg-gray-50"
+          />
+          <p className="text-xs text-gray-500">
+            Register this URL in Payoneer Dashboard → Settings → API. Optional webhook signing secret below.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Webhook secret (optional)</Label>
+          <Input
+            type="password"
+            value={payoneerSettings.webhook_secret}
+            onChange={(e) => setPayoneerSettings({ ...payoneerSettings, webhook_secret: e.target.value })}
+            placeholder="Webhook signing secret"
+          />
+        </div>
+      </CardContent>
+    </Card>
+  )
 
   const renderExternalGatewayCard = (
     title: string,
@@ -321,6 +508,7 @@ export default function PaymentSettingsPage() {
           <TabsTrigger value="kora">Kora</TabsTrigger>
           <TabsTrigger value="chipper">Chipper</TabsTrigger>
           <TabsTrigger value="paystack">Paystack</TabsTrigger>
+          <TabsTrigger value="payoneer">Payoneer</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stripe">
@@ -795,6 +983,7 @@ export default function PaymentSettingsPage() {
         <TabsContent value="paystack">
           {renderExternalGatewayCard('Paystack', paystackSettings, setPaystackSettings, 'https://paystack.com/docs')}
         </TabsContent>
+        <TabsContent value="payoneer">{renderPayoneerCard()}</TabsContent>
       </Tabs>
 
       <div className="mt-6 flex justify-end">

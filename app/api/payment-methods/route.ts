@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { getSetting } from '@/app/actions/settings'
-import { EXTERNAL_GATEWAY_LABELS, EXTERNAL_GATEWAY_KEYS } from '@/lib/external-gateways'
+import {
+  EXTERNAL_GATEWAY_LABELS,
+  EXTERNAL_GATEWAY_KEYS,
+  isExternalGatewayConfigured,
+  normalizeExternalGatewaySettings,
+  normalizePayoneerSettings,
+} from '@/lib/external-gateways'
 
 export async function GET(req: NextRequest) {
   try {
@@ -80,7 +86,7 @@ export async function GET(req: NextRequest) {
       }
     })
 
-    // Add externally integrated gateways (2Checkout, Kora, Chipper, Paystack)
+    // Add externally integrated gateways (2Checkout, Kora, Chipper, Paystack, Payoneer)
     const externalSettingsEntries = await Promise.all(
       EXTERNAL_GATEWAY_KEYS.map(async (key) => {
         const result = await getSetting(key)
@@ -89,7 +95,14 @@ export async function GET(req: NextRequest) {
     )
 
     const externalMethods = externalSettingsEntries
-      .filter(({ settings }) => settings?.enabled === true)
+      .filter(({ key, settings }) => {
+        if (!settings) return false
+        const normalized =
+          key === 'payoneer'
+            ? normalizePayoneerSettings(settings)
+            : normalizeExternalGatewaySettings(settings)
+        return isExternalGatewayConfigured(key, normalized)
+      })
       .map(({ key, settings }) => {
         const customLabel =
           settings?.checkout_label?.trim() ||

@@ -3,15 +3,24 @@ import { randomUUID } from 'crypto'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import {
   EXTERNAL_GATEWAY_KEYS,
+  isExternalGatewayConfigured,
   normalizeExternalGatewaySettings,
+  normalizePayoneerSettings,
   type ExternalGatewayKey,
 } from '@/lib/external-gateways'
+import {
+  createPayoneerListSession,
+  getPayoneerIntegrationMode,
+} from '@/lib/payoneer-checkout'
 
 type InitBody = {
   gateway: ExternalGatewayKey
   amount: number
   currency: string
   email: string
+  country?: string
+  firstName?: string
+  lastName?: string
   metadata?: Record<string, any>
 }
 
@@ -40,14 +49,76 @@ export async function POST(req: NextRequest) {
       .select('setting_value')
       .eq('setting_key', body.gateway)
       .single()
-    const settings = normalizeExternalGatewaySettings(row?.setting_value)
+    const settings =
+      body.gateway === 'payoneer'
+        ? normalizePayoneerSettings(row?.setting_value)
+        : normalizeExternalGatewaySettings(row?.setting_value)
     if (!settings.enabled) {
       return NextResponse.json({ success: false, error: `${body.gateway} is disabled` }, { status: 400 })
+    }
+
+    if (!isExternalGatewayConfigured(body.gateway, settings)) {
+      return NextResponse.json(
+        { success: false, error: `${body.gateway} is enabled but not fully configured` },
+        { status: 400 }
+      )
     }
 
     const reference = `${body.gateway}_${randomUUID().replace(/-/g, '')}`
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin
     const callbackUrl = resolveCallbackUrl(baseUrl, settings.callback_url, body.gateway, reference)
+
+    if (body.gateway === 'payoneer') {
+      const cancelUrl =
+        settings.callback_url?.trim().replace('payment_status=success', 'payment_status=cancelled') ||
+        `${baseUrl}/checkout?payment_status=cancelled&gateway=payoneer`
+
+      const payoneerSession = await createPayoneerListSession({
+        settings,
+        reference,
+        amount: body.amount,
+        currency: body.currency || 'USD',
+        email: body.email,
+        country: body.country || 'US',
+        firstName: body.firstName,
+        lastName: body.lastName,
+        returnUrl: callbackUrl,
+        cancelUrl,
+      })
+
+      const mode = getPayoneerIntegrationMode(settings)
+      const env = settings.mode === 'live' ? 'live' : 'test'
+
+      if (mode === 'hosted') {
+        const redirectUrl = payoneerSession.redirectUrl
+        if (!redirectUrl) {
+          return NextResponse.json(
+            { success: false, error: 'Payoneer hosted checkout URL was not returned' },
+            { status: 400 }
+          )
+        }
+        return NextResponse.json({
+          success: true,
+          gateway: body.gateway,
+          reference,
+          redirectUrl,
+          payoneerSessionId: payoneerSession.longId,
+        })
+      }
+
+      return NextResponse.json({
+        success: true,
+        gateway: body.gateway,
+        reference,
+        embedded: true,
+        payoneer: {
+          longId: payoneerSession.longId,
+          listUrl: payoneerSession.listUrl,
+          env,
+        },
+        payoneerSessionId: payoneerSession.longId,
+      })
+    }
 
     // Provider-specific fast path for Paystack.
     if (body.gateway === 'paystack' && settings.secret_key) {
